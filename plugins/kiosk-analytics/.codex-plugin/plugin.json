@@ -1,0 +1,52 @@
+{
+  "name": "kiosk-analytics",
+  "version": "0.1.0",
+  "description": "First-party kiosk analytics bundle for live touchpoints, collector APIs, validation, aggregate outputs, and sales join keys.",
+  "author": {
+    "name": "Fynd Kiosk Dashboard",
+    "email": "",
+    "url": ""
+  },
+  "homepage": "./README.md",
+  "repository": "",
+  "license": "UNLICENSED",
+  "keywords": [
+    "kiosk",
+    "analytics",
+    "data-layer",
+    "touchpoints",
+    "collector"
+  ],
+  "skills": "./skills/",
+  "hooks": "",
+  "mcpServers": "",
+  "apps": "",
+  "interface": {
+    "displayName": "Kiosk Analytics",
+    "shortDescription": "First-party live analytics for kiosk journeys.",
+    "longDescription": "Packages the kioskDataLayer runtime, event tracker bridge, live collector, schemas, touchpoint maps, dashboard aggregate contracts, Ruflo workflow, docs, and verification tests for the Fynd kiosk dashboard.",
+    "developerName": "Fynd Kiosk Dashboard",
+    "category": "Analytics",
+    "capabilities": [
+      "Write",
+      "Analytics",
+      "Developer Tools"
+    ],
+    "websiteURL": "",
+    "privacyPolicyURL": "",
+    "termsOfServiceURL": "",
+    "defaultPrompt": [
+      "Implement kiosk journey tracking with the first-party dataLayer.",
+      "Validate kiosk analytics events against the touchpoint contract.",
+      "Check the live dashboard collector and aggregate outputs."
+    ],
+    "brandColor": "#1D4ED8",
+    "composerIcon": "./assets/dashboard-realtime-flow.png",
+    "logo": "./assets/dashboard-live-only-top.png",
+    "screenshots": [
+      "./assets/dashboard-live-only-top.png",
+      "./assets/dashboard-realtime-flow.png",
+      "./assets/dashboard-remapped-journey.png"
+    ]
+  }
+}

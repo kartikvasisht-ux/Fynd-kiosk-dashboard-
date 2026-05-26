@@ -1,0 +1,83 @@
+{
+  "command": {
+    "total_revenue_30d": {
+      "sources": ["kiosk_events"],
+      "status": "requires_payment_or_order_amounts",
+      "formula": "sum unique amount from order_created/order_complete events in last 30 days; fallback to payment_success only when order revenue events are absent"
+    },
+    "revenue_per_kiosk": {
+      "sources": ["kiosk_events", "devices"],
+      "status": "requires_kiosk_id_or_device_session_id",
+      "formula": "total_revenue_30d / count_distinct(kiosk_id or device_session_id in last 30 days)"
+    },
+    "mom_order_growth": {
+      "sources": ["kiosk_events"],
+      "status": "requires_current_and_previous_month_order_events",
+      "formula": "(count_distinct(current_month order_created/order_complete) - count_distinct(previous_month order_created/order_complete)) / previous_month_orders"
+    },
+    "conversion_rate": {
+      "sources": ["kiosk_events"],
+      "status": "requires_kiosk_instrumentation",
+      "formula": "count_distinct(session_id with order_created/order_complete) / count_distinct(session_id with session_start/kiosk_app_bootstrap_started/tap_get_started)"
+    },
+    "payment_success_rate": {
+      "sources": ["kiosk_events"],
+      "status": "requires_payment_failure_taxonomy",
+      "formula": "count(payment_success) / count(payment_init)"
+    },
+    "incremental_lift": {
+      "sources": ["kiosk_events", "experiment_or_campaign_events"],
+      "status": "requires_explicit_lift_field",
+      "formula": "latest explicit incremental_lift_pct/incremental_lift_percent/incremental_lift_rate field"
+    },
+    "network_uptime": {
+      "sources": ["kiosk_events"],
+      "status": "requires_api_or_network_success_failure_events",
+      "formula": "count(API/network events with success or api_status < 400) / count(API/network events with success/failure/timeout/api_status)"
+    }
+  },
+  "strategy": {
+    "scan_to_cart_rate": {
+      "sources": ["kiosk_events"],
+      "status": "requires_scan_events",
+      "formula": "count(cart_add_success) / count(scan_success + manual_barcode_submit)"
+    },
+    "product_conversion_rate": {
+      "sources": ["kiosk_events", "orders"],
+      "status": "requires_product_event_join",
+      "formula": "orders containing product / product scans"
+    },
+    "oos_scan_rate": {
+      "sources": ["kiosk_events", "catalog_inventory"],
+      "status": "requires_inventory_snapshot",
+      "formula": "count(oos_scan) / count(scan_success)"
+    },
+    "manual_barcode_rate": {
+      "sources": ["kiosk_events"],
+      "status": "new_recommended_metric",
+      "formula": "count(manual_barcode_open) / count(scan_home_view)"
+    }
+  },
+  "operational": {
+    "journey_form_schema_errors": {
+      "sources": ["kiosk_events", "sentry"],
+      "status": "observed_live",
+      "formula": "count(journey_form_schema_failed)"
+    },
+    "device_context_missing": {
+      "sources": ["kiosk_events", "devices"],
+      "status": "observed_live",
+      "formula": "count(device_context_missing)"
+    },
+    "oms_avg_confirm_time": {
+      "sources": ["orders"],
+      "status": "available_now",
+      "formula": "avg(confirmed_at - placed_at)"
+    },
+    "payment_options_failure_rate": {
+      "sources": ["kiosk_events", "payments"],
+      "status": "recommended_metric",
+      "formula": "count(payment_options_failed) / count(payment_methods_view)"
+    }
+  }
+}

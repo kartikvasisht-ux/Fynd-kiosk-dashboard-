@@ -1,0 +1,50 @@
+{
+  "name": "fynd-kiosk-live-dashboard-ops",
+  "version": "1.0.0",
+  "source": "ruflo-workflows",
+  "description": "Repeatable Ruflo workflow for validating the live-only Fynd Kiosk dashboard and collecting live observability snapshots.",
+  "inputs": {
+    "dashboard_url": "http://127.0.0.1:8765/",
+    "collector_url": "http://127.0.0.1:8787"
+  },
+  "guards": [
+    "Do not inject mock dashboard data.",
+    "Do not click production payment submit or purchase actions.",
+    "Mask raw customer, cart, order, phone, token, and OTP values."
+  ],
+  "steps": [
+    {
+      "id": "collector-summary",
+      "name": "Read live collector summary",
+      "type": "shell",
+      "command": "COLLECTOR_URL=${collector_url} node fynd_kiosk_dashboard/boilerplate/ruflo-observability-exporter.js",
+      "outputs": ["observability_snapshot"]
+    },
+    {
+      "id": "live-only-audit",
+      "name": "Confirm dashboard has no simulated data hooks",
+      "type": "shell",
+      "command": "rg -n \"Math\\\\.random|setInterval|baseKpis|realtimeEvents|tickRealtime|jitter|simulated\" fynd_kiosk_dashboard/index.html",
+      "success_when": "no_matches"
+    },
+    {
+      "id": "browser-qa",
+      "name": "Verify dashboard browser state",
+      "type": "browser",
+      "url": "${dashboard_url}",
+      "checks": [
+        "Collector status is connected when collector is running",
+        "No mock KPI values are visible",
+        "Empty states appear when no live events exist",
+        "No console errors"
+      ]
+    },
+    {
+      "id": "ops-brief",
+      "name": "Prepare live-data readiness brief",
+      "type": "report",
+      "inputs": ["observability_snapshot"],
+      "output": "live data sources present, missing production feeds, and next integration action"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "fynd-kiosk-dashboard",
+  "interface": {
+    "displayName": "Fynd Kiosk Dashboard Plugins"
+  },
+  "plugins": [
+    {
+      "name": "kiosk-analytics",
+      "source": {
+        "source": "local",
+        "path": "./plugins/kiosk-analytics"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Analytics"
+    }
+  ]
+}

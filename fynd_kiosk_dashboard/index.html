@@ -1,0 +1,2322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fynd Kiosk analytics dashboard</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --surface: #ffffff;
+      --surface-soft: #f7f9fc;
+      --border: #dce3ec;
+      --border-soft: #edf1f6;
+      --text: #101828;
+      --muted: #667085;
+      --muted-2: #98a2b3;
+      --blue: #1d4ed8;
+      --green: #067647;
+      --amber: #b54708;
+      --red: #b42318;
+      --purple: #6941c6;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 16px 32px rgba(16, 24, 40, 0.06);
+      --radius: 10px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    button,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      color: #ffffff;
+      font-size: 24px;
+      line-height: 1.2;
+      font-weight: 780;
+    }
+
+    h2 {
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.3;
+      font-weight: 760;
+    }
+
+    h3 {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.3;
+      font-weight: 760;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #0b1220;
+      box-shadow: 0 14px 36px rgba(15, 23, 42, 0.18);
+    }
+
+    .topbar-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 24px 18px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .brand-row,
+    .toolbar,
+    .tab-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 280px;
+    }
+
+    .mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #0b1220;
+      display: grid;
+      place-items: center;
+      font-weight: 820;
+      font-size: 13px;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+    }
+
+    .eyebrow {
+      color: #aeb8c8;
+      font-size: 12px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip,
+    .status-pill,
+    .source-pill,
+    .rag {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      min-height: 32px;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .status-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      color: #e6eaf1;
+    }
+
+    .chip {
+      background: #f9fafb;
+      border-color: #e7ebf1;
+      color: #667085;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      display: inline-block;
+      background: var(--muted-2);
+      box-shadow: 0 0 0 3px rgba(152, 162, 179, 0.14);
+    }
+
+    .dot.green {
+      background: var(--green);
+      box-shadow: 0 0 0 3px rgba(6, 118, 71, 0.14);
+    }
+
+    .dot.amber {
+      background: var(--amber);
+      box-shadow: 0 0 0 3px rgba(181, 71, 8, 0.14);
+    }
+
+    .dot.red {
+      background: var(--red);
+      box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.14);
+    }
+
+    .toolbar {
+      align-items: end;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 12px;
+      flex: 1;
+      min-width: min(100%, 860px);
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: #aeb8c8;
+      font-size: 11px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+
+    select,
+    .icon-button,
+    .text-button {
+      min-height: 40px;
+      border: 1px solid #dfe5ee;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #1f2937;
+      box-shadow: 0 1px 1px rgba(16, 24, 40, 0.02);
+      outline: none;
+    }
+
+    select {
+      width: 100%;
+      padding: 0 32px 0 12px;
+    }
+
+    select:disabled {
+      color: var(--muted-2);
+      background: #f2f5f9;
+    }
+
+    select:focus,
+    button:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, 0.18);
+      border-color: var(--blue);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .icon-button,
+    .text-button {
+      font-weight: 760;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 12px;
+    }
+
+    .icon-button {
+      width: 40px;
+      padding: 0;
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .text-button.primary {
+      background: #ffffff;
+      color: #0b1220;
+      border-color: #ffffff;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .tab {
+      border: 0;
+      background: transparent;
+      min-height: 36px;
+      border-radius: 6px;
+      padding: 0 16px;
+      color: #c7d0de;
+      font-weight: 760;
+    }
+
+    .tab.active {
+      background: #ffffff;
+      color: #0b1220;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+      display: grid;
+      gap: 24px;
+    }
+
+    .summary-band {
+      display: grid;
+      grid-template-columns: 1.25fr 0.85fr 0.85fr;
+      gap: 16px;
+    }
+
+    .panel,
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .panel-subtitle,
+    .microcopy {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .active-context,
+    .readiness-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .readiness-list {
+      display: grid;
+    }
+
+    .source-pill {
+      justify-content: space-between;
+      border-radius: 10px;
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px 8px 12px;
+      background: #fcfcfd;
+      border-color: var(--border-soft);
+      color: var(--muted);
+    }
+
+    .source-pill strong {
+      color: var(--text);
+    }
+
+    .rag {
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 8px;
+      font-size: 11px;
+    }
+
+    .rag.green {
+      color: var(--green);
+      background: #ecfdf3;
+      border-color: #abefc6;
+    }
+
+    .rag.amber {
+      color: var(--amber);
+      background: #fffaeb;
+      border-color: #fedf89;
+    }
+
+    .rag.red {
+      color: var(--red);
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .rag.neutral {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #eaecf0;
+    }
+
+    .live-flow-band {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.55fr) minmax(320px, 0.75fr);
+      gap: 16px;
+    }
+
+    .flow-pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .flow-node {
+      position: relative;
+      min-height: 118px;
+      padding: 14px;
+      border: 1px solid #dfe6ef;
+      border-radius: 10px;
+      background: #fbfcfe;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      overflow: hidden;
+    }
+
+    .flow-node::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--fill, 0%);
+      height: 3px;
+      background: var(--node-color, #98a2b3);
+      transition: width 260ms ease;
+    }
+
+    .flow-node.active {
+      border-color: #b9cffd;
+      box-shadow: 0 10px 22px rgba(29, 78, 216, 0.08);
+    }
+
+    .flow-node-title {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .flow-node-value {
+      color: #0b1220;
+      font-size: 22px;
+      font-weight: 820;
+      line-height: 1;
+    }
+
+    .flow-node-copy {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .flow-metrics,
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .kpi-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .flow-metric,
+    .kpi-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      background: #fbfcfe;
+      display: grid;
+      gap: 8px;
+    }
+
+    .flow-metric {
+      padding: 12px;
+    }
+
+    .flow-metric span,
+    .kpi-title,
+    .metric-source {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 760;
+    }
+
+    .flow-metric strong {
+      color: var(--text);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .kpi-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 148px;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+      background: var(--surface);
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      background: var(--blue);
+    }
+
+    .kpi-card[data-state="waiting"]::before {
+      background: #98a2b3;
+    }
+
+    .kpi-card[data-state="warn"]::before {
+      background: var(--amber);
+    }
+
+    .kpi-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .kpi-value {
+      color: #0b1220;
+      font-size: 30px;
+      line-height: 1.08;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+
+    .kpi-value.small {
+      font-size: 23px;
+    }
+
+    .metric-source {
+      margin-top: auto;
+      color: var(--muted-2);
+    }
+
+    .delta {
+      width: max-content;
+      max-width: 100%;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #f2f4f7;
+      color: #475467;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.75fr);
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .event-stream,
+    .list-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .event-stream {
+      max-height: 244px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .event-row,
+    .list-row {
+      display: grid;
+      grid-template-columns: 8px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      background: #fbfcfe;
+    }
+
+    .event-row:first-child {
+      border-color: #c7d7fe;
+      background: #f7faff;
+    }
+
+    .event-name {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .event-meta,
+    .event-time {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .event-time {
+      color: var(--muted-2);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .chart-box,
+    .empty-state {
+      min-height: 250px;
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      background: #fbfcfe;
+    }
+
+    .chart-box {
+      display: grid;
+      align-items: end;
+      overflow: hidden;
+    }
+
+    .line-chart {
+      width: 100%;
+      height: 250px;
+    }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      text-align: center;
+    }
+
+    .empty-state.compact {
+      min-height: 108px;
+    }
+
+    .empty-copy {
+      display: grid;
+      gap: 8px;
+      max-width: 360px;
+    }
+
+    .empty-copy strong {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .empty-copy span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border-soft);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f5f7fb;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 760;
+    }
+
+    td {
+      color: #344054;
+      background: #ffffff;
+    }
+
+    td strong {
+      color: var(--text);
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1180px) {
+      .filters {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .summary-band,
+      .live-flow-band,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-pipeline,
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        position: static;
+      }
+
+      .topbar-inner,
+      main {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      h1 {
+        font-size: 19px;
+      }
+
+      .filters,
+      .flow-pipeline,
+      .flow-metrics,
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs,
+      .tab {
+        width: 100%;
+      }
+
+      .tab {
+        flex: 1;
+        padding: 0 8px;
+      }
+
+      .panel {
+        padding: 16px;
+      }
+
+      .event-row,
+      .list-row {
+        grid-template-columns: 8px 1fr;
+      }
+
+      .event-time,
+      .list-row .rag {
+        grid-column: 2;
+        justify-self: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand-row">
+          <div class="brand-lockup">
+            <div class="mark">FK</div>
+            <div>
+              <div class="eyebrow">FYND & GO self-checkout</div>
+              <h1>Fynd Kiosk analytics command center</h1>
+            </div>
+          </div>
+          <div class="status-strip" aria-label="Dashboard status">
+            <span class="status-pill"><span class="dot amber" id="streamDot"></span><span id="streamState">Connecting to collector</span></span>
+            <span class="status-pill">Live-only data mode</span>
+            <span class="status-pill" id="lastEventPill">No live events yet</span>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="filters">
+            <label>Date range
+              <select id="dateFilter">
+                <option value="live">Live window</option>
+                <option value="today">Today</option>
+                <option value="24h">Last 24 hours</option>
+                <option value="7d">Last 7 days</option>
+              </select>
+            </label>
+            <label>City
+              <select id="cityFilter" disabled>
+                <option value="all">All live cities</option>
+              </select>
+            </label>
+            <label>Brand
+              <select id="brandFilter" disabled>
+                <option value="all">All live brands</option>
+              </select>
+            </label>
+            <label>Payment mode
+              <select id="paymentFilter" disabled>
+                <option value="all">All live modes</option>
+              </select>
+            </label>
+            <label>Device status
+              <select id="deviceFilter" disabled>
+                <option value="all">All live statuses</option>
+              </select>
+            </label>
+            <label>Store focus
+              <select id="storeFilter" disabled>
+                <option value="all">All live stores</option>
+              </select>
+            </label>
+          </div>
+          <div class="action-row">
+            <button class="icon-button" id="refreshBtn" title="Refresh live summary" aria-label="Refresh live summary">R</button>
+            <button class="text-button primary" id="exportBtn">Export live view</button>
+          </div>
+        </div>
+
+        <div class="tab-row">
+          <div class="tabs" role="tablist" aria-label="Dashboard views">
+            <button class="tab active" data-tab="command" role="tab">Command</button>
+            <button class="tab" data-tab="strategy" role="tab">Strategy</button>
+            <button class="tab" data-tab="operational" role="tab">Operational</button>
+          </div>
+          <div class="status-strip" id="activeFilters"></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="summary-band">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Live data contract</h2>
+              <p class="panel-subtitle">The dashboard renders only events and summaries received from the real-time collector.</p>
+            </div>
+            <span class="rag amber" id="modeBadge">Waiting</span>
+          </div>
+          <div class="active-context" id="pulseContext"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Collector status</h2>
+              <p class="panel-subtitle">SSE stream and latest accepted event.</p>
+            </div>
+          </div>
+          <div class="readiness-list">
+            <span class="source-pill"><strong>Stream</strong><span class="rag amber" id="collectorStatus">Connecting</span></span>
+            <span class="source-pill"><strong>Endpoint</strong><span id="collectorEndpoint">127.0.0.1:8787</span></span>
+            <span class="source-pill"><strong>Last event</strong><span id="lastEventTime">None</span></span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Production inputs</h2>
+              <p class="panel-subtitle">Required sources before business KPIs can populate.</p>
+            </div>
+          </div>
+          <div class="readiness-list" id="sourceReadiness"></div>
+        </div>
+      </section>
+
+      <section class="live-flow-band">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Real-time data flow</h2>
+              <p class="panel-subtitle">Customer action to live analytics, with no browser-side simulation.</p>
+            </div>
+            <span class="rag amber" id="flowHealth">Waiting</span>
+          </div>
+          <div class="flow-pipeline" id="flowPipeline"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Live counters</h2>
+              <p class="panel-subtitle">Values come from accepted collector events only.</p>
+            </div>
+          </div>
+          <div class="flow-metrics" id="liveMetrics"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Latest events</h2>
+              <p class="panel-subtitle">Rolling real-time stream from the collector.</p>
+            </div>
+          </div>
+          <div class="event-stream" id="eventStream"></div>
+        </div>
+      </section>
+
+      <section id="commandView" class="view">
+        <div class="kpi-grid" id="commandKpis"></div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Revenue trend</h2>
+                <p class="panel-subtitle">Drawn only when live order or payment events include amounts.</p>
+              </div>
+              <span class="rag neutral" id="revenueStatus">No data</span>
+            </div>
+            <div class="chart-box" id="revenueChartWrap">
+              <svg class="line-chart" id="revenueChart" viewBox="0 0 720 250" role="img" aria-label="Live revenue trend"></svg>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Cart to order funnel</h2>
+                <p class="panel-subtitle">Stage counts from live customer journey events.</p>
+              </div>
+              <span class="rag neutral" id="funnelStatus">No data</span>
+            </div>
+            <div class="list-stack" id="commandFunnel"></div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Revenue leakage</h2>
+                <p class="panel-subtitle">Calculated only from real failure and abandonment events with value fields.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="leakageList"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Store status</h2>
+                <p class="panel-subtitle">Stores appear after live events identify store context.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="storeTableWrap">
+              <table id="storeTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Journey breakpoints</h2>
+                <p class="panel-subtitle">Real failures, context gaps, and API errors from the stream.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="riskTimeline"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="strategyView" class="view hidden">
+        <div class="kpi-grid" id="strategyKpis"></div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Brand performance</h2>
+                <p class="panel-subtitle">Brands populate from live product, cart, or order event dimensions.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="brandTableWrap">
+              <table id="brandTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Share of kiosk wallet</h2>
+                <p class="panel-subtitle">Calculated only from live order/payment amounts by brand.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="walletLegend"></div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Product behavior</h2>
+                <p class="panel-subtitle">Recent product and barcode events from the live stream.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="productMatrix"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Out-of-stock scan rate</h2>
+                <p class="panel-subtitle">Requires live product-not-found or OOS scan events.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="oosBars"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Cohort repeat rate</h2>
+                <p class="panel-subtitle">Requires live identity-safe repeat user and order events.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="cohortTableWrap">
+              <table id="cohortTable"></table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="operationalView" class="view hidden">
+        <div class="kpi-grid" id="operationalKpis"></div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Live OMS latency</h2>
+                <p class="panel-subtitle">Populates from live OMS events containing order timing fields.</p>
+              </div>
+              <span class="rag neutral" id="omsStatus">No data</span>
+            </div>
+            <div class="table-wrap" id="omsTableWrap">
+              <table id="omsTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Payment failure reasons</h2>
+                <p class="panel-subtitle">Real failure taxonomy from payment events.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="paymentPareto"></div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Store health score</h2>
+                <p class="panel-subtitle">Built from real heartbeat, API, payment, and journey signals.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="healthTableWrap">
+              <table id="healthTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Network errors</h2>
+                <p class="panel-subtitle">API and network failures grouped by live store/hour.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="networkHeatmap"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Kiosk activity</h2>
+                <p class="panel-subtitle">Observed live activity by store, hour, and device.</p>
+              </div>
+            </div>
+            <div class="list-stack" id="staffHeatmap"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const collectorOrigin = new URLSearchParams(location.search).get("collector") || "http://127.0.0.1:8787";
+    const endpoints = {
+      stream: `${collectorOrigin}/analytics/stream`,
+      summary: `${collectorOrigin}/analytics/summary`,
+      aggregates: `${collectorOrigin}/analytics/aggregates`
+    };
+
+    const state = {
+      tab: "command",
+      connected: false,
+      connectionError: "",
+      summary: emptySummary(),
+      aggregates: emptyAggregates(),
+      events: [],
+      dimensions: {
+        cityFilter: new Map(),
+        brandFilter: new Map(),
+        paymentFilter: new Map(),
+        deviceFilter: new Map(),
+        storeFilter: new Map()
+      }
+    };
+    let fallbackEventCounter = 0;
+
+    const filterLabels = {
+      dateFilter: "Date range",
+      cityFilter: "City",
+      brandFilter: "Brand",
+      paymentFilter: "Payment mode",
+      deviceFilter: "Device status",
+      storeFilter: "Store focus"
+    };
+
+    const sourceChecklist = [
+      ["Kiosk event stream", "event_count"],
+      ["Payment/order amounts", "amount"],
+      ["Device heartbeat", "device"],
+      ["OMS timing events", "oms"]
+    ];
+
+    const flowStages = [
+      ["Kiosk app", "trackKioskEvent", "#1d4ed8", "Real customer actions emitted from kiosk frontend."],
+      ["Collector API", "/analytics/kiosk-events", "#067647", "Only accepted events move into the dashboard."],
+      ["Stream", "SSE", "#b54708", "Dashboard receives events as the collector publishes them."],
+      ["Warehouse", "facts + joins", "#6941c6", "Aggregate APIs can join orders, payments, inventory, and devices."],
+      ["Dashboard", "live KPIs", "#0f172a", "Cards update only from real events or aggregate responses."]
+    ];
+
+    const commandMetrics = [
+      {
+        title: "Total revenue (30d)",
+        source: "30d payment/order events with amount",
+        calculate: () => formatRevenue(totalRevenue30d())
+      },
+      {
+        title: "Revenue per kiosk",
+        source: "30d revenue / kiosk_id or device_session_id",
+        calculate: () => formatRevenue(revenuePerKiosk30d())
+      },
+      {
+        title: "MoM order growth",
+        source: "current month vs previous month order events",
+        calculate: () => formatSignedPercent(momOrderGrowth())
+      },
+      {
+        title: "Conversion rate",
+        source: "collector order_conversion_rate",
+        calculate: () => formatAggregateRate("rates.order_conversion_rate", () => formatRate(uniqueSessions(["order_created", "order_complete"]), uniqueSessions(["session_start", "kiosk_app_bootstrap_started", "tap_get_started"])))
+      },
+      {
+        title: "Payment success rate",
+        source: "collector payment_success_rate",
+        calculate: () => formatAggregateRate("rates.payment_success_rate", () => formatRate(countEvents("payment_success"), countEvents("payment_init")))
+      },
+      {
+        title: "Incremental lift",
+        source: "explicit incremental_lift_pct fields",
+        calculate: () => formatSignedPercent(incrementalLift())
+      },
+      {
+        title: "Network uptime",
+        source: "API/network success vs failure events",
+        calculate: () => formatPercent(networkUptime())
+      }
+    ];
+
+    const strategyMetrics = [
+      {
+        title: "Scan-to-cart rate",
+        source: "collector scan_to_cart_rate",
+        calculate: () => formatAggregateRate("rates.scan_to_cart_rate", () => formatRate(countEvents("cart_add_success"), countEvents(["scan_success", "manual_barcode_submit"])))
+      },
+      {
+        title: "Manual barcode rate",
+        source: "manual_barcode_open + scan_home_view",
+        calculate: () => formatRate(countEvents("manual_barcode_open"), countEvents("scan_home_view"))
+      },
+      {
+        title: "Product scan events",
+        source: "scan_success + manual_barcode_submit",
+        calculate: () => valueOrWaiting(countEvents(["scan_success", "manual_barcode_submit"]), "events")
+      },
+      {
+        title: "OOS/product gaps",
+        source: "oos_scan + product_not_found",
+        calculate: () => valueOrWaiting(countEvents(["oos_scan", "product_not_found"]), "events")
+      },
+      {
+        title: "Brands observed",
+        source: "brand dimensions in live events",
+        calculate: () => valueOrWaiting(groupByDimension("brand").size, "brands")
+      },
+      {
+        title: "Product IDs observed",
+        source: "product dimensions in live events",
+        calculate: () => valueOrWaiting(groupByDimension("product").size, "products")
+      },
+      {
+        title: "Returning users",
+        source: "identity-safe user hashes",
+        calculate: () => valueOrWaiting(returningUsers(), "users")
+      },
+      {
+        title: "Multi-brand carts",
+        source: "cart events with cart_id_hash + brand_id",
+        calculate: () => valueOrWaiting(multiBrandCarts(), "carts")
+      }
+    ];
+
+    const operationalMetrics = [
+      {
+        title: "Collector failures",
+        source: "collector summary + failure events",
+        calculate: () => valueOrWaiting(Math.max(Number(state.summary.failures || 0), liveAggregateOrZero("counts.api_failures"), failureEvents().length), "failures")
+      },
+      {
+        title: "Queue depth",
+        source: "collector summary",
+        calculate: () => valueOrWaiting(state.summary.queue_depth, "events")
+      },
+      {
+        title: "Context gaps",
+        source: "events with context_missing",
+        calculate: () => valueOrWaiting(contextGapEvents().length, "events")
+      },
+      {
+        title: "Device heartbeats",
+        source: "collector device health + MDM/device events",
+        calculate: () => valueOrWaiting(Math.max(liveAggregateOrZero("device_health.heartbeat_events"), deviceEvents().length), "events")
+      },
+      {
+        title: "Payment failures",
+        source: "collector payment_failures + payment events",
+        calculate: () => valueOrWaiting(Math.max(liveAggregateOrZero("counts.payment_failures"), countEvents("payment_failure")), "events")
+      },
+      {
+        title: "OMS events",
+        source: "source=oms or OMS timings",
+        calculate: () => valueOrWaiting(omsEvents().length, "events")
+      },
+      {
+        title: "Event rate",
+        source: "events received in last minute",
+        calculate: () => valueOrWaiting(state.summary.events_per_minute, "events/min")
+      },
+      {
+        title: "Latest event age",
+        source: "collector last_event_at",
+        calculate: () => formatAge(state.summary.last_event_at)
+      }
+    ];
+
+    function emptySummary() {
+      return {
+        events_processed: 0,
+        events_per_minute: 0,
+        api_latency_ms: null,
+        queue_depth: 0,
+        failures: 0,
+        last_event_at: null
+      };
+    }
+
+    function emptyAggregates() {
+      return {
+        funnel: {
+          open: 0,
+          auth: 0,
+          scan: 0,
+          cart: 0,
+          checkout: 0,
+          payment_init: 0,
+          payment_success: 0,
+          order: 0,
+          complete: 0
+        },
+        rates: {
+          scan_to_cart_rate: null,
+          payment_success_rate: null,
+          order_conversion_rate: null,
+          api_failure_rate: null
+        },
+        counts: {
+          events: 0,
+          sessions: 0,
+          api_failures: 0,
+          payment_failures: 0,
+          payment_timeouts: 0,
+          device_context_missing: 0,
+          sales_join_ready: 0
+        },
+        device_health: {
+          active_devices: 0,
+          offline_devices: 0,
+          heartbeat_events: 0
+        },
+        payment_failures_by_reason: [],
+        store_activity: []
+      };
+    }
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function eventName(event) {
+      return event.event_name || event.name || "unknown_event";
+    }
+
+    function eventTime(event) {
+      return event.occurred_at || event.received_at || null;
+    }
+
+    function normalizeEvent(raw) {
+      return raw && raw.event ? raw.event : raw;
+    }
+
+    function filteredEvents(options = {}) {
+      const selected = {
+        cityFilter: byId("cityFilter").value,
+        brandFilter: byId("brandFilter").value,
+        paymentFilter: byId("paymentFilter").value,
+        deviceFilter: byId("deviceFilter").value,
+        storeFilter: byId("storeFilter").value
+      };
+
+      return state.events.filter((event) => {
+        if (!options.ignoreDate && !inDateRange(event)) return false;
+        if (selected.cityFilter !== "all" && dimensionValue(event, "city") !== selected.cityFilter) return false;
+        if (selected.brandFilter !== "all" && dimensionValue(event, "brand") !== selected.brandFilter) return false;
+        if (selected.paymentFilter !== "all" && dimensionValue(event, "payment") !== selected.paymentFilter) return false;
+        if (selected.deviceFilter !== "all" && dimensionValue(event, "device") !== selected.deviceFilter) return false;
+        if (selected.storeFilter !== "all" && dimensionValue(event, "store") !== selected.storeFilter) return false;
+        return true;
+      });
+    }
+
+    function inDateRange(event) {
+      const value = byId("dateFilter").value;
+      if (value === "live") return true;
+      const stamp = eventTime(event);
+      if (!stamp) return false;
+      const time = new Date(stamp).getTime();
+      if (Number.isNaN(time)) return false;
+      const now = Date.now();
+      if (value === "today") {
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+        return time >= start;
+      }
+      if (value === "24h") return time >= now - 24 * 60 * 60 * 1000;
+      if (value === "7d") return time >= now - 7 * 24 * 60 * 60 * 1000;
+      return true;
+    }
+
+    function dimensionValue(event, kind) {
+      if (kind === "city") return event.city || event.city_name || "";
+      if (kind === "brand") return event.brand_id || event.brand_name || event.brand || "";
+      if (kind === "payment") return event.payment_mode || "";
+      if (kind === "device") return event.device_status || event.status || "";
+      if (kind === "store") return event.store_id || event.store_name || "";
+      if (kind === "product") return event.product_id || event.product_name || event.barcode_hash || "";
+      return "";
+    }
+
+    function dimensionLabel(event, kind) {
+      if (kind === "store") return event.store_name || event.store_id || "Unknown store";
+      if (kind === "brand") return event.brand_name || event.brand || event.brand_id || "Unknown brand";
+      if (kind === "product") return event.product_name || event.product_id || event.barcode_hash || "Unknown product";
+      if (kind === "payment") return event.payment_mode || "Unknown mode";
+      if (kind === "city") return event.city_name || event.city || "Unknown city";
+      if (kind === "device") return event.device_status || event.status || "Unknown status";
+      return "Unknown";
+    }
+
+    function countEvents(names) {
+      const allowed = Array.isArray(names) ? names : [names];
+      return filteredEvents().filter((event) => allowed.includes(eventName(event))).length;
+    }
+
+    function failureEvents() {
+      return filteredEvents().filter((event) => eventName(event).includes("failure") || eventName(event).includes("failed"));
+    }
+
+    function apiFailures() {
+      return filteredEvents().filter((event) => isApiEvent(event) && isFailureSignal(event));
+    }
+
+    function contextGapEvents() {
+      return filteredEvents().filter((event) => event.context_missing || eventName(event) === "device_context_missing");
+    }
+
+    function deviceEvents() {
+      return filteredEvents().filter((event) => event.source === "mdm" || eventName(event).includes("heartbeat") || event.kiosk_id);
+    }
+
+    function omsEvents() {
+      return filteredEvents().filter((event) => event.source === "oms" || event.order_confirmed_at || event.order_placed_at || event.oms_elapsed_ms);
+    }
+
+    function avgApiLatency(events = filteredEvents()) {
+      const values = events.map((event) => Number(event.api_duration_ms)).filter((value) => Number.isFinite(value));
+      if (!values.length) return null;
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    }
+
+    function sumAmounts(names) {
+      const allowed = Array.isArray(names) ? names : [names];
+      return filteredEvents()
+        .filter((event) => allowed.includes(eventName(event)))
+        .map((event) => Number(event.amount))
+        .filter((value) => Number.isFinite(value))
+        .reduce((sum, value) => sum + value, 0);
+    }
+
+    function timestampMs(event) {
+      const stamp = eventTime(event);
+      if (!stamp) return null;
+      const time = new Date(stamp).getTime();
+      return Number.isNaN(time) ? null : time;
+    }
+
+    function eventsBetween(start, end) {
+      const startTime = start.getTime();
+      const endTime = end.getTime();
+      return filteredEvents({ ignoreDate: true }).filter((event) => {
+        const time = timestampMs(event);
+        return time !== null && time >= startTime && time < endTime;
+      });
+    }
+
+    function eventsInLastDays(days) {
+      const end = new Date();
+      const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+      return eventsBetween(start, end);
+    }
+
+    function amountEventKey(event) {
+      return event.order_id_hash
+        || event.transaction_id_hash
+        || event.payment_order_id_hash
+        || event.payment_session_id_hash
+        || event.cart_id_hash
+        || event.event_id
+        || `${eventName(event)}:${eventTime(event)}`;
+    }
+
+    function sumUniqueAmounts(events) {
+      const byReference = new Map();
+      events.forEach((event) => {
+        const amount = Number(event.amount);
+        if (!Number.isFinite(amount) || amount <= 0) return;
+        const key = amountEventKey(event);
+        byReference.set(key, Math.max(byReference.get(key) || 0, amount));
+      });
+      return [...byReference.values()].reduce((sum, amount) => sum + amount, 0);
+    }
+
+    function firstMetricValue(...values) {
+      return values.find((value) => value !== undefined && value !== null && value !== "");
+    }
+
+    function revenueEvents30d() {
+      const events = eventsInLastDays(30).filter((event) => Number.isFinite(Number(event.amount)));
+      const orderRevenue = events.filter((event) => ["order_created", "order_complete"].includes(eventName(event)));
+      if (orderRevenue.length) return orderRevenue;
+      return events.filter((event) => eventName(event) === "payment_success");
+    }
+
+    function totalRevenue30d() {
+      return sumUniqueAmounts(revenueEvents30d());
+    }
+
+    function revenuePerKiosk30d() {
+      const revenue = totalRevenue30d();
+      if (!Number.isFinite(revenue) || revenue <= 0) return null;
+      const kioskIds = new Set(eventsInLastDays(30)
+        .map((event) => event.kiosk_id || event.device_session_id)
+        .filter(Boolean));
+      if (!kioskIds.size) return null;
+      return revenue / kioskIds.size;
+    }
+
+    function orderReference(event) {
+      return event.order_id_hash || event.event_id || `${eventName(event)}:${eventTime(event)}`;
+    }
+
+    function uniqueOrders(events) {
+      const orders = new Set();
+      events.forEach((event) => {
+        if (["order_created", "order_complete"].includes(eventName(event))) {
+          orders.add(orderReference(event));
+        }
+      });
+      return orders.size;
+    }
+
+    function momOrderGrowth() {
+      const now = new Date();
+      const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const currentOrders = uniqueOrders(eventsBetween(currentStart, now));
+      const previousOrders = uniqueOrders(eventsBetween(previousStart, currentStart));
+      if (!previousOrders) return null;
+      return ((currentOrders - previousOrders) / previousOrders) * 100;
+    }
+
+    function incrementalLift() {
+      const liftEvent = filteredEvents()
+        .filter((event) => Number.isFinite(Number(firstMetricValue(event.incremental_lift_pct, event.incremental_lift_percent, event.incremental_lift_rate))))
+        .sort((a, b) => (timestampMs(b) || 0) - (timestampMs(a) || 0))[0];
+      if (!liftEvent) return null;
+      const percent = Number(firstMetricValue(liftEvent.incremental_lift_pct, liftEvent.incremental_lift_percent));
+      if (Number.isFinite(percent)) return percent;
+      const rate = Number(liftEvent.incremental_lift_rate);
+      if (!Number.isFinite(rate)) return null;
+      return Math.abs(rate) <= 1 ? rate * 100 : rate;
+    }
+
+    function isApiEvent(event) {
+      return event.event_type === "api" || event.api_status !== undefined || eventName(event).startsWith("api_request_");
+    }
+
+    function isFailureSignal(event) {
+      return event.status === "failure"
+        || event.status === "timeout"
+        || Number(event.api_status) >= 400
+        || eventName(event).includes("failure")
+        || eventName(event).includes("failed");
+    }
+
+    function networkUptime() {
+      const networkEvents = filteredEvents().filter((event) => {
+        const statusCode = Number(event.api_status);
+        return isApiEvent(event) && (Number.isFinite(statusCode) || ["success", "failure", "timeout"].includes(event.status));
+      });
+      if (!networkEvents.length) return null;
+      const healthy = networkEvents.filter((event) => {
+        const statusCode = Number(event.api_status);
+        return Number.isFinite(statusCode) ? statusCode < 400 : event.status === "success";
+      }).length;
+      return (healthy / networkEvents.length) * 100;
+    }
+
+    function uniqueSessions(names) {
+      const allowed = Array.isArray(names) ? names : [names];
+      const sessions = new Set();
+      filteredEvents().forEach((event) => {
+        if (allowed.includes(eventName(event)) && event.session_id) sessions.add(event.session_id);
+      });
+      return sessions.size;
+    }
+
+    function returningUsers() {
+      const counts = new Map();
+      filteredEvents().forEach((event) => {
+        if (!event.user_id_hash) return;
+        counts.set(event.user_id_hash, (counts.get(event.user_id_hash) || 0) + 1);
+      });
+      return [...counts.values()].filter((count) => count > 1).length;
+    }
+
+    function multiBrandCarts() {
+      const carts = new Map();
+      filteredEvents().forEach((event) => {
+        if (!event.cart_id_hash || !event.brand_id) return;
+        if (!carts.has(event.cart_id_hash)) carts.set(event.cart_id_hash, new Set());
+        carts.get(event.cart_id_hash).add(event.brand_id);
+      });
+      return [...carts.values()].filter((brands) => brands.size > 1).length;
+    }
+
+    function groupByStore() {
+      const grouped = new Map();
+      filteredEvents().forEach((event) => {
+        const key = dimensionValue(event, "store");
+        if (!key) return;
+        if (!grouped.has(key)) grouped.set(key, { label: dimensionLabel(event, "store"), events: [] });
+        grouped.get(key).events.push(event);
+      });
+      return grouped;
+    }
+
+    function groupByDimension(kind) {
+      const grouped = new Map();
+      filteredEvents().forEach((event) => {
+        const key = dimensionValue(event, kind);
+        if (!key) return;
+        if (!grouped.has(key)) grouped.set(key, { label: dimensionLabel(event, kind), events: [] });
+        grouped.get(key).events.push(event);
+      });
+      return grouped;
+    }
+
+    function formatNumber(value) {
+      if (!Number.isFinite(Number(value))) return "--";
+      return Number(value).toLocaleString();
+    }
+
+    function formatRevenue(value) {
+      if (!Number.isFinite(value) || value <= 0) return "--";
+      return `Rs. ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    }
+
+    function formatRate(numerator, denominator) {
+      if (!denominator) return "--";
+      return `${((numerator / denominator) * 100).toFixed(1)}%`;
+    }
+
+    function formatPercent(value) {
+      if (value === null || value === undefined || value === "") return "--";
+      if (!Number.isFinite(Number(value))) return "--";
+      return `${Number(value).toFixed(1)}%`;
+    }
+
+    function formatSignedPercent(value) {
+      if (value === null || value === undefined || value === "") return "--";
+      if (!Number.isFinite(Number(value))) return "--";
+      const number = Number(value);
+      const prefix = number > 0 ? "+" : "";
+      return `${prefix}${number.toFixed(1)}%`;
+    }
+
+    function aggregateValue(path) {
+      const value = path.split(".").reduce((current, key) => current && current[key], state.aggregates);
+      if (value === null || value === undefined || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function liveAggregateOrZero(path) {
+      const value = aggregateValue(path);
+      return value === null ? 0 : value;
+    }
+
+    function liveAggregateOrCount(path, names) {
+      return Math.max(liveAggregateOrZero(path), countEvents(names));
+    }
+
+    function aggregateListCount(path) {
+      const list = path.split(".").reduce((current, key) => current && current[key], state.aggregates);
+      return Array.isArray(list) ? list.length : 0;
+    }
+
+    function formatAggregateRate(path, fallback) {
+      const value = aggregateValue(path);
+      if (value === null) return fallback();
+      return `${value.toFixed(1)}%`;
+    }
+
+    function formatMs(value) {
+      if (!Number.isFinite(value)) return "--";
+      return `${Math.round(value)}ms`;
+    }
+
+    function valueOrWaiting(value, suffix = "") {
+      if (!Number.isFinite(Number(value)) || Number(value) === 0) return "--";
+      return `${formatNumber(value)}${suffix ? ` ${suffix}` : ""}`;
+    }
+
+    function formatAge(stamp) {
+      if (!stamp) return "--";
+      const time = new Date(stamp).getTime();
+      if (Number.isNaN(time)) return "--";
+      const seconds = Math.max(0, Math.round((Date.now() - time) / 1000));
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.round(seconds / 60);
+      return `${minutes}m`;
+    }
+
+    function formatClock(stamp) {
+      if (!stamp) return "--";
+      const date = new Date(stamp);
+      if (Number.isNaN(date.getTime())) return "--";
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function metaForEvent(event) {
+      const parts = [
+        event.screen_name,
+        event.store_name || event.store_id,
+        event.payment_mode,
+        event.api_status ? `API ${event.api_status}` : "",
+        event.amount ? `Rs. ${event.amount}` : "",
+        event.failure_reason
+      ].filter(Boolean);
+      return parts.length ? parts.join(" / ") : event.source || "live event";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    function renderActiveFilters() {
+      const chips = Object.entries(filterLabels).map(([id, label]) => {
+        const select = byId(id);
+        const selected = select.options[select.selectedIndex]?.text || "All";
+        return `<span class="chip">${label}: ${escapeHtml(selected)}</span>`;
+      }).join("");
+      byId("activeFilters").innerHTML = chips;
+      byId("pulseContext").innerHTML = chips;
+    }
+
+    function renderSourceReadiness() {
+      const hasAnyEvents = state.events.length > 0;
+      const checks = {
+        event_count: hasAnyEvents,
+        amount: filteredEvents().some((event) => Number.isFinite(Number(event.amount))),
+        device: deviceEvents().length > 0,
+        oms: omsEvents().length > 0
+      };
+      byId("sourceReadiness").innerHTML = sourceChecklist.map(([label, key]) => {
+        const ready = checks[key];
+        return `<span class="source-pill"><strong>${label}</strong><span class="rag ${ready ? "green" : "neutral"}">${ready ? "Live" : "Waiting"}</span></span>`;
+      }).join("");
+    }
+
+    function renderFlow() {
+      const hasEvents = state.events.length > 0;
+      const activeIndex = hasEvents ? Math.min(flowStages.length - 1, Math.max(0, Number(state.summary.events_processed || 0) % flowStages.length)) : -1;
+      byId("flowPipeline").innerHTML = flowStages.map((stage, index) => {
+        const active = index === activeIndex;
+        const fill = hasEvents ? (active ? 100 : 54) : 0;
+        const value = [
+          hasEvents ? "Live" : "Waiting",
+          state.connected ? "Connected" : "Offline",
+          hasEvents ? "Streaming" : "No events",
+          hasEvents ? "Ready" : "Waiting",
+          hasEvents ? "Updating" : "Empty"
+        ][index];
+        return `
+          <div class="flow-node ${active ? "active" : ""}" style="--node-color:${stage[2]}; --fill:${fill}%">
+            <span class="dot ${hasEvents ? "green" : "amber"}"></span>
+            <div class="flow-node-title">${stage[0]}</div>
+            <div class="flow-node-value">${value}</div>
+            <div class="flow-node-copy">${stage[1]}<br>${stage[3]}</div>
+          </div>
+        `;
+      }).join("");
+
+      const latency = Number.isFinite(Number(state.summary.api_latency_ms)) && Number(state.summary.api_latency_ms) > 0
+        ? `${Math.round(Number(state.summary.api_latency_ms))}ms`
+        : "--";
+      byId("liveMetrics").innerHTML = `
+        <div class="flow-metric"><span>Events processed</span><strong>${formatNumber(state.summary.events_processed || 0)}</strong></div>
+        <div class="flow-metric"><span>Events / min</span><strong>${formatNumber(state.summary.events_per_minute || 0)}</strong></div>
+        <div class="flow-metric"><span>API latency</span><strong>${latency}</strong></div>
+        <div class="flow-metric"><span>Queue depth</span><strong>${formatNumber(state.summary.queue_depth || 0)}</strong></div>
+      `;
+    }
+
+    function renderEventStream() {
+      const events = filteredEvents().slice(0, 30);
+      if (!events.length) {
+        byId("eventStream").innerHTML = emptyState("Waiting for live feed", "Connect the kiosk frontend, payment webhooks, OMS, or MDM source to the collector. No placeholder events are rendered.");
+        return;
+      }
+
+      byId("eventStream").innerHTML = events.map((event) => {
+        const isFailure = failureEvents().includes(event) || Number(event.api_status) >= 400;
+        return `
+          <div class="event-row">
+            <span class="dot ${isFailure ? "red" : "green"}"></span>
+            <div>
+              <div class="event-name">${escapeHtml(eventName(event))}</div>
+              <div class="event-meta">${escapeHtml(metaForEvent(event))}</div>
+            </div>
+            <div class="event-time">${formatClock(eventTime(event))}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderKpis(target, metrics) {
+      byId(target).innerHTML = metrics.map((metric) => {
+        const value = metric.calculate();
+        const waiting = value === "--";
+        return `
+          <article class="kpi-card" data-state="${waiting ? "waiting" : "live"}">
+            <div class="kpi-top">
+              <div class="kpi-title">${metric.title}</div>
+              <span class="rag ${waiting ? "neutral" : "green"}">${waiting ? "Waiting" : "Live"}</span>
+            </div>
+            <div class="kpi-value ${String(value).length > 10 ? "small" : ""}">${value}</div>
+            <div class="delta">${waiting ? "No live value received" : "Real-time value"}</div>
+            <div class="metric-source">${metric.source}</div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderRevenueChart() {
+      const events = filteredEvents()
+        .filter((event) => ["payment_success", "order_complete"].includes(eventName(event)) && Number.isFinite(Number(event.amount)))
+        .sort((a, b) => new Date(eventTime(a)).getTime() - new Date(eventTime(b)).getTime());
+      const svg = byId("revenueChart");
+      if (!events.length) {
+        byId("revenueStatus").textContent = "No data";
+        byId("revenueStatus").className = "rag neutral";
+        svg.innerHTML = emptySvg("Waiting for live revenue events");
+        return;
+      }
+
+      const points = [];
+      let running = 0;
+      events.forEach((event) => {
+        running += Number(event.amount);
+        points.push({ time: new Date(eventTime(event)).getTime(), value: running });
+      });
+      const minX = Math.min(...points.map((point) => point.time));
+      const maxX = Math.max(...points.map((point) => point.time));
+      const maxY = Math.max(...points.map((point) => point.value));
+      const toX = (time) => maxX === minX ? 360 : 36 + ((time - minX) / (maxX - minX)) * 648;
+      const toY = (value) => maxY === 0 ? 205 : 205 - (value / maxY) * 165;
+      const line = points.map((point) => `${toX(point.time).toFixed(1)},${toY(point.value).toFixed(1)}`).join(" ");
+
+      byId("revenueStatus").textContent = "Live";
+      byId("revenueStatus").className = "rag green";
+      svg.innerHTML = `
+        <rect x="0" y="0" width="720" height="250" fill="#fbfcfe"></rect>
+        <line x1="36" x2="684" y1="205" y2="205" stroke="#e8edf3"></line>
+        <line x1="36" x2="684" y1="150" y2="150" stroke="#e8edf3"></line>
+        <line x1="36" x2="684" y1="95" y2="95" stroke="#e8edf3"></line>
+        <text x="36" y="30" fill="#667085" font-size="11" font-weight="700">Live cumulative revenue</text>
+        <polyline points="${line}" fill="none" stroke="#1d4ed8" stroke-width="4"></polyline>
+        ${points.map((point, index) => index % 4 === 0 || index === points.length - 1 ? `<circle cx="${toX(point.time).toFixed(1)}" cy="${toY(point.value).toFixed(1)}" r="4" fill="#1d4ed8"></circle>` : "").join("")}
+        <text x="36" y="226" fill="#667085" font-size="11">${formatClock(events[0].occurred_at)}</text>
+        <text x="580" y="226" fill="#667085" font-size="11">${formatRevenue(running)}</text>
+      `;
+    }
+
+    function emptySvg(message) {
+      return `
+        <rect x="0" y="0" width="720" height="250" fill="#fbfcfe"></rect>
+        <text x="360" y="118" text-anchor="middle" fill="#101828" font-size="15" font-weight="760">${escapeHtml(message)}</text>
+        <text x="360" y="142" text-anchor="middle" fill="#667085" font-size="12">No placeholder trend is displayed.</text>
+      `;
+    }
+
+    function renderFunnel() {
+      const stages = [
+        ["Open", ["kiosk_app_bootstrap_started", "tap_get_started"]],
+        ["Login", ["otp_verify_success"]],
+        ["Scan", ["scan_success", "manual_barcode_submit"]],
+        ["Cart", ["cart_add_success", "cart_view"]],
+        ["Pay init", ["payment_init", "payment_methods_view"]],
+        ["Pay success", ["payment_success"]],
+        ["Order", ["order_complete"]]
+      ];
+      const rows = stages.map(([label, names]) => [label, countEvents(names)]);
+      const max = Math.max(...rows.map((row) => row[1]));
+      if (!max) {
+        byId("funnelStatus").textContent = "No data";
+        byId("funnelStatus").className = "rag neutral";
+        byId("commandFunnel").innerHTML = emptyState("Waiting for journey events", "Open, scan, cart, payment, and order stages will appear when real events arrive.", true);
+        return;
+      }
+      byId("funnelStatus").textContent = "Live";
+      byId("funnelStatus").className = "rag green";
+      byId("commandFunnel").innerHTML = rows.map(([label, count]) => {
+        const pct = Math.round((count / max) * 100);
+        return listRow(label, `${formatNumber(count)} events`, `${pct}%`);
+      }).join("");
+    }
+
+    function renderLeakage() {
+      const rows = [
+        ["Payment failures", "payment_failure"],
+        ["Cart add failures", "cart_add_failure"],
+        ["Product not found", "product_not_found"],
+        ["OOS scans", "oos_scan"]
+      ].map(([label, name]) => {
+        const events = filteredEvents().filter((event) => eventName(event) === name);
+        const value = events.map((event) => Number(event.amount)).filter(Number.isFinite).reduce((sum, amount) => sum + amount, 0);
+        return [label, events.length, value];
+      }).filter((row) => row[1] > 0);
+
+      byId("leakageList").innerHTML = rows.length
+        ? rows.map((row) => listRow(row[0], `${row[1]} events`, row[2] ? formatRevenue(row[2]) : "No value field")).join("")
+        : emptyState("No live leakage events", "Failure and abandonment value will populate only from real events.", true);
+    }
+
+    function renderBreakpoints() {
+      const rows = [...new Set([...apiFailures(), ...failureEvents(), ...contextGapEvents()])].slice(0, 8);
+      byId("riskTimeline").innerHTML = rows.length
+        ? rows.map((event) => listRow(eventName(event), metaForEvent(event), formatClock(eventTime(event)), Number(event.api_status) >= 400 ? "red" : "amber")).join("")
+        : emptyState("No live breakpoints", "API errors, failure events, and context gaps will appear here.", true);
+    }
+
+    function renderBrandViews() {
+      const groups = groupByDimension("brand");
+      if (!groups.size) {
+        renderEmptyTable("brandTable", "No live brand dimensions received.");
+        byId("walletLegend").innerHTML = emptyState("Waiting for brand revenue", "Brand wallet share needs live brand and amount fields.", true);
+        return;
+      }
+
+      const rows = [...groups.values()].map((group) => {
+        const revenue = group.events.map((event) => Number(event.amount)).filter(Number.isFinite).reduce((sum, amount) => sum + amount, 0);
+        return {
+          brand: group.label,
+          events: group.events.length,
+          revenue,
+          orders: group.events.filter((event) => eventName(event) === "order_complete").length,
+          failures: group.events.filter((event) => failureEvents().includes(event)).length
+        };
+      }).sort((a, b) => b.events - a.events);
+
+      renderTable("brandTable", ["Brand", "Events", "Orders", "Revenue", "Failures"], rows.map((row) => `
+        <tr>
+          <td><strong>${escapeHtml(row.brand)}</strong></td>
+          <td>${formatNumber(row.events)}</td>
+          <td>${formatNumber(row.orders)}</td>
+          <td>${formatRevenue(row.revenue)}</td>
+          <td>${formatNumber(row.failures)}</td>
+        </tr>
+      `));
+
+      const total = rows.reduce((sum, row) => sum + row.revenue, 0);
+      byId("walletLegend").innerHTML = total > 0
+        ? rows.map((row) => listRow(row.brand, formatRevenue(row.revenue), `${((row.revenue / total) * 100).toFixed(1)}%`)).join("")
+        : emptyState("No live brand amounts", "Brand events exist, but amount fields are not present yet.", true);
+    }
+
+    function renderProductViews() {
+      const productEvents = filteredEvents().filter((event) => dimensionValue(event, "product") || ["scan_success", "manual_barcode_submit", "product_not_found", "oos_scan"].includes(eventName(event)));
+      byId("productMatrix").innerHTML = productEvents.length
+        ? productEvents.slice(0, 8).map((event) => listRow(dimensionLabel(event, "product"), eventName(event), formatClock(eventTime(event)))).join("")
+        : emptyState("Waiting for product events", "Product, barcode, OOS, and scan events will populate this view.", true);
+
+      const oos = filteredEvents().filter((event) => ["oos_scan", "product_not_found"].includes(eventName(event)));
+      byId("oosBars").innerHTML = oos.length
+        ? oos.slice(0, 8).map((event) => listRow(dimensionLabel(event, "product"), eventName(event), formatClock(eventTime(event)), "amber")).join("")
+        : emptyState("No live OOS events", "Only real oos_scan or product_not_found events are shown.", true);
+    }
+
+    function renderCohorts() {
+      const users = new Map();
+      filteredEvents().forEach((event) => {
+        if (!event.user_id_hash || !eventTime(event)) return;
+        const month = eventTime(event).slice(0, 7);
+        const key = `${month}:${event.user_id_hash}`;
+        users.set(key, (users.get(key) || 0) + 1);
+      });
+      const monthly = new Map();
+      users.forEach((count, key) => {
+        const month = key.split(":")[0];
+        if (!monthly.has(month)) monthly.set(month, { users: 0, repeat: 0 });
+        monthly.get(month).users += 1;
+        if (count > 1) monthly.get(month).repeat += 1;
+      });
+
+      if (!monthly.size) {
+        renderEmptyTable("cohortTable", "No live identity-safe cohort data received.");
+        return;
+      }
+
+      const rows = [...monthly.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      renderTable("cohortTable", ["Cohort", "Users", "Repeat users", "Repeat rate"], rows.map(([month, value]) => `
+        <tr>
+          <td><strong>${month}</strong></td>
+          <td>${formatNumber(value.users)}</td>
+          <td>${formatNumber(value.repeat)}</td>
+          <td>${formatRate(value.repeat, value.users)}</td>
+        </tr>
+      `));
+    }
+
+    function renderStoreTables() {
+      const stores = groupByStore();
+      if (!stores.size) {
+        renderEmptyTable("storeTable", "No live store context received.");
+        renderEmptyTable("healthTable", "No live store health signals received.");
+        return;
+      }
+
+      const rows = [...stores.values()].map((group) => {
+        const failures = group.events.filter((event) => failureEvents().includes(event) || Number(event.api_status) >= 400).length;
+        const latency = avgApiLatency(group.events);
+        return {
+          store: group.label,
+          events: group.events.length,
+          orders: group.events.filter((event) => eventName(event) === "order_complete").length,
+          failures,
+          latency
+        };
+      }).sort((a, b) => b.events - a.events);
+
+      renderTable("storeTable", ["Store", "Events", "Orders", "Failures", "Latency"], rows.map((row) => `
+        <tr>
+          <td><strong>${escapeHtml(row.store)}</strong></td>
+          <td>${formatNumber(row.events)}</td>
+          <td>${formatNumber(row.orders)}</td>
+          <td>${formatNumber(row.failures)}</td>
+          <td>${formatMs(row.latency)}</td>
+        </tr>
+      `));
+
+      renderTable("healthTable", ["Store", "Live events", "Failures", "Health"], rows.map((row) => {
+        const status = row.failures > 0 ? "amber" : "green";
+        return `
+          <tr>
+            <td><strong>${escapeHtml(row.store)}</strong></td>
+            <td>${formatNumber(row.events)}</td>
+            <td>${formatNumber(row.failures)}</td>
+            <td><span class="rag ${status}">${status === "green" ? "Live" : "Watch"}</span></td>
+          </tr>
+        `;
+      }));
+    }
+
+    function renderOpsViews() {
+      const oms = omsEvents();
+      byId("omsStatus").textContent = oms.length ? "Live" : "No data";
+      byId("omsStatus").className = oms.length ? "rag green" : "rag neutral";
+      if (!oms.length) {
+        renderEmptyTable("omsTable", "No live OMS timing events received.");
+      } else {
+        renderTable("omsTable", ["Event", "Store", "Elapsed", "Time"], oms.slice(0, 12).map((event) => `
+          <tr>
+            <td><strong>${escapeHtml(eventName(event))}</strong></td>
+            <td>${escapeHtml(event.store_name || event.store_id || "--")}</td>
+            <td>${formatMs(Number(event.oms_elapsed_ms))}</td>
+            <td>${formatClock(eventTime(event))}</td>
+          </tr>
+        `));
+      }
+
+      const payments = filteredEvents().filter((event) => eventName(event) === "payment_failure");
+      byId("paymentPareto").innerHTML = payments.length
+        ? summarizeBy(payments, (event) => event.failure_reason || "Unknown reason").map((row) => listRow(row.label, `${row.count} events`, row.value ? formatRevenue(row.value) : "No value", "red")).join("")
+        : emptyState("No live payment failures", "Payment reasons will appear only from payment_failure events.", true);
+
+      const network = apiFailures();
+      byId("networkHeatmap").innerHTML = network.length
+        ? network.slice(0, 10).map((event) => listRow(event.api_endpoint || eventName(event), metaForEvent(event), formatClock(eventTime(event)), "red")).join("")
+        : emptyState("No live network errors", "Only real API failures are shown.", true);
+
+      const activity = summarizeBy(filteredEvents(), (event) => event.store_name || event.store_id || event.source || "Unknown source");
+      byId("staffHeatmap").innerHTML = activity.length
+        ? activity.map((row) => listRow(row.label, `${row.count} events`, row.value ? formatRevenue(row.value) : "Live activity")).join("")
+        : emptyState("No live activity", "Kiosk activity appears after real events are accepted.", true);
+    }
+
+    function summarizeBy(events, labeler) {
+      const grouped = new Map();
+      events.forEach((event) => {
+        const label = labeler(event);
+        if (!grouped.has(label)) grouped.set(label, { label, count: 0, value: 0 });
+        grouped.get(label).count += 1;
+        const amount = Number(event.amount);
+        if (Number.isFinite(amount)) grouped.get(label).value += amount;
+      });
+      return [...grouped.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+    }
+
+    function listRow(title, meta, value, status = "green") {
+      return `
+        <div class="list-row">
+          <span class="dot ${status === "red" ? "red" : status === "amber" ? "amber" : "green"}"></span>
+          <div>
+            <div class="event-name">${escapeHtml(title)}</div>
+            <div class="event-meta">${escapeHtml(meta)}</div>
+          </div>
+          <span class="rag ${status}">${escapeHtml(value)}</span>
+        </div>
+      `;
+    }
+
+    function emptyState(title, copy, compact = false) {
+      return `
+        <div class="empty-state ${compact ? "compact" : ""}">
+          <div class="empty-copy">
+            <strong>${escapeHtml(title)}</strong>
+            <span>${escapeHtml(copy)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTable(id, headers, rowsHtml) {
+      byId(id).innerHTML = `
+        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+        <tbody>${rowsHtml.join("")}</tbody>
+      `;
+    }
+
+    function renderEmptyTable(id, message) {
+      byId(id).innerHTML = `
+        <thead><tr><th>Status</th></tr></thead>
+        <tbody><tr><td>${escapeHtml(message)}</td></tr></tbody>
+      `;
+    }
+
+    function updateStatus() {
+      const hasEvents = state.events.length > 0;
+      byId("streamDot").className = `dot ${state.connected ? "green" : state.connectionError ? "red" : "amber"}`;
+      byId("streamState").textContent = state.connected ? "Collector connected" : state.connectionError ? "Collector offline" : "Connecting to collector";
+      byId("collectorStatus").textContent = state.connected ? "Connected" : state.connectionError ? "Offline" : "Connecting";
+      byId("collectorStatus").className = `rag ${state.connected ? "green" : state.connectionError ? "red" : "amber"}`;
+      byId("modeBadge").textContent = hasEvents ? "Live" : "Waiting";
+      byId("modeBadge").className = `rag ${hasEvents ? "green" : "amber"}`;
+      byId("flowHealth").textContent = hasEvents ? "Live" : "Waiting";
+      byId("flowHealth").className = `rag ${hasEvents ? "green" : "amber"}`;
+      byId("collectorEndpoint").textContent = new URL(collectorOrigin).host;
+      const last = state.summary.last_event_at || state.events[0]?.occurred_at;
+      byId("lastEventPill").textContent = last ? `Last event ${formatClock(last)}` : "No live events yet";
+      byId("lastEventTime").textContent = last ? formatClock(last) : "None";
+    }
+
+    function updateDimensions() {
+      Object.values(state.dimensions).forEach((map) => map.clear());
+      state.events.forEach((event) => {
+        addDimension("cityFilter", dimensionValue(event, "city"), dimensionLabel(event, "city"));
+        addDimension("brandFilter", dimensionValue(event, "brand"), dimensionLabel(event, "brand"));
+        addDimension("paymentFilter", dimensionValue(event, "payment"), dimensionLabel(event, "payment"));
+        addDimension("deviceFilter", dimensionValue(event, "device"), dimensionLabel(event, "device"));
+        addDimension("storeFilter", dimensionValue(event, "store"), dimensionLabel(event, "store"));
+      });
+
+      Object.entries(state.dimensions).forEach(([id, values]) => {
+        const select = byId(id);
+        const current = select.value;
+        const first = select.options[0].text;
+        select.innerHTML = `<option value="all">${escapeHtml(first)}</option>${[...values.entries()].map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join("")}`;
+        select.disabled = values.size === 0;
+        select.value = values.has(current) ? current : "all";
+      });
+    }
+
+    function addDimension(id, value, label) {
+      if (!value) return;
+      state.dimensions[id].set(String(value), String(label || value));
+    }
+
+    function upsertEvents(events) {
+      const byEventId = new Map(state.events.map((event) => [event.event_id || `${eventName(event)}:${eventTime(event)}:${state.events.indexOf(event)}`, event]));
+      events.forEach((raw) => {
+        const event = normalizeEvent(raw);
+        if (!event) return;
+        const key = event.event_id || `${eventName(event)}:${eventTime(event)}:${fallbackEventCounter++}`;
+        byEventId.set(key, event);
+      });
+      state.events = [...byEventId.values()]
+        .sort((a, b) => new Date(eventTime(b) || 0).getTime() - new Date(eventTime(a) || 0).getTime())
+        .slice(0, 500);
+    }
+
+    function normalizeAggregates(input = {}) {
+      const empty = emptyAggregates();
+      return {
+        ...empty,
+        ...input,
+        funnel: { ...empty.funnel, ...(input.funnel || {}) },
+        rates: { ...empty.rates, ...(input.rates || {}) },
+        counts: { ...empty.counts, ...(input.counts || {}) },
+        device_health: { ...empty.device_health, ...(input.device_health || {}) },
+        payment_failures_by_reason: Array.isArray(input.payment_failures_by_reason) ? input.payment_failures_by_reason : empty.payment_failures_by_reason,
+        store_activity: Array.isArray(input.store_activity) ? input.store_activity : empty.store_activity
+      };
+    }
+
+    function applyCollectorPayload(payload = {}) {
+      state.summary = { ...emptySummary(), ...(payload.summary || state.summary) };
+      state.aggregates = normalizeAggregates(payload.aggregates || payload.summary?.aggregates || state.aggregates);
+    }
+
+    async function loadSummary() {
+      try {
+        const response = await fetch(endpoints.summary, { cache: "no-store" });
+        if (!response.ok) throw new Error(`summary ${response.status}`);
+        const payload = await response.json();
+        const aggregateResponse = await fetch(endpoints.aggregates, { cache: "no-store" }).catch(() => null);
+        const aggregatePayload = aggregateResponse && aggregateResponse.ok ? await aggregateResponse.json() : {};
+        applyCollectorPayload({ ...payload, aggregates: aggregatePayload.aggregates || payload.aggregates });
+        if (Array.isArray(payload.recent_events)) upsertEvents(payload.recent_events);
+        state.connectionError = "";
+      } catch (error) {
+        state.connectionError = error.message;
+      }
+      renderAll();
+    }
+
+    function connectLiveStream() {
+      try {
+        const source = new EventSource(endpoints.stream);
+        source.addEventListener("connected", (message) => {
+          const payload = JSON.parse(message.data || "{}");
+          state.connected = true;
+          state.connectionError = "";
+          applyCollectorPayload(payload);
+          loadSummary();
+          renderAll();
+        });
+        source.addEventListener("kiosk-event", (message) => {
+          const payload = JSON.parse(message.data || "{}");
+          state.connected = true;
+          state.connectionError = "";
+          applyCollectorPayload(payload);
+          if (payload.event) upsertEvents([payload.event]);
+          renderAll();
+        });
+        source.onerror = () => {
+          state.connected = false;
+          state.connectionError = "Unable to reach live collector";
+          renderAll();
+        };
+      } catch (error) {
+        state.connected = false;
+        state.connectionError = error.message;
+        renderAll();
+      }
+    }
+
+    function renderViews() {
+      document.querySelectorAll(".view").forEach((view) => view.classList.add("hidden"));
+      byId(`${state.tab}View`).classList.remove("hidden");
+      document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === state.tab));
+    }
+
+    function renderAll() {
+      updateDimensions();
+      updateStatus();
+      renderActiveFilters();
+      renderSourceReadiness();
+      renderFlow();
+      renderEventStream();
+      renderKpis("commandKpis", commandMetrics);
+      renderKpis("strategyKpis", strategyMetrics);
+      renderKpis("operationalKpis", operationalMetrics);
+      renderRevenueChart();
+      renderFunnel();
+      renderLeakage();
+      renderBreakpoints();
+      renderStoreTables();
+      renderBrandViews();
+      renderProductViews();
+      renderCohorts();
+      renderOpsViews();
+      renderViews();
+    }
+
+    document.querySelectorAll("select").forEach((select) => select.addEventListener("change", renderAll));
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.tab = button.dataset.tab;
+        renderAll();
+      });
+    });
+
+    byId("refreshBtn").addEventListener("click", loadSummary);
+    byId("exportBtn").addEventListener("click", () => {
+      const payload = {
+        exported_at: new Date().toISOString(),
+        collector_origin: collectorOrigin,
+        tab: state.tab,
+        summary: state.summary,
+        aggregates: state.aggregates,
+        events: filteredEvents()
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `fynd-kiosk-live-${state.tab}-${Date.now()}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    renderAll();
+    connectLiveStream();
+    loadSummary();
+  </script>
+</body>
+</html>

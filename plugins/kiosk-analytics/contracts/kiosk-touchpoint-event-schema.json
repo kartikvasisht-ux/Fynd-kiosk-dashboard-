@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fynd Kiosk Touchpoint Event",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "session_id",
+    "event_name",
+    "event_type",
+    "timestamp",
+    "screen_name",
+    "status",
+    "source_url"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "Stable kiosk visit/session identifier. Generate at session_start and carry through completion/end."
+    },
+    "event_name": {
+      "type": "string",
+      "description": "Normalized snake_case event name."
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "session",
+        "screen_view",
+        "click",
+        "input",
+        "scan",
+        "api",
+        "cart",
+        "checkout",
+        "payment",
+        "order",
+        "system",
+        "error"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Client event time in ISO 8601. Server should also attach received_at."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "screen_name": {
+      "type": "string",
+      "examples": [
+        "welcome",
+        "mobile_entry",
+        "otp",
+        "scan_home",
+        "manual_barcode",
+        "cart",
+        "checkout",
+        "payment",
+        "order_status"
+      ]
+    },
+    "action_name": {
+      "type": "string",
+      "description": "Visible click/input action such as tap_get_started, continue, back, retry, cancel, close, remove_item."
+    },
+    "article": {
+      "type": "string",
+      "description": "Article/SKU identifier when available. Use unknown if unavailable."
+    },
+    "barcode": {
+      "type": "string",
+      "description": "Raw barcode should be avoided in production analytics. Prefer barcode_hash."
+    },
+    "barcode_hash": {
+      "type": "string"
+    },
+    "cart_reference": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "cart_id_hash": { "type": "string" },
+        "line_item_id": { "type": "string" },
+        "quantity": { "type": "number" }
+      }
+    },
+    "order_reference": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "order_id_hash": { "type": "string" },
+        "shipment_id_hash": { "type": "string" },
+        "bag_id_hash": { "type": "string" }
+      }
+    },
+    "payment_reference": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "payment_session_id_hash": { "type": "string" },
+        "payment_order_id_hash": { "type": "string" },
+        "transaction_id_hash": { "type": "string" },
+        "payment_mode": { "type": "string" },
+        "aggregator_name": { "type": "string" }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "started",
+        "viewed",
+        "clicked",
+        "submitted",
+        "success",
+        "failure",
+        "timeout",
+        "cancelled",
+        "closed",
+        "unknown"
+      ]
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Screen URL or endpoint template. Mask PII and volatile IDs."
+    },
+    "journey_stage": {
+      "type": "string"
+    },
+    "company_id": {
+      "type": "string"
+    },
+    "application_id": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "device_session_id": {
+      "type": "string"
+    },
+    "kiosk_id": {
+      "type": "string"
+    },
+    "user_id_hash": {
+      "type": "string"
+    },
+    "mobile_hash": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "brand_id": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "currency": {
+      "type": "string",
+      "default": "INR"
+    },
+    "api_endpoint": {
+      "type": "string"
+    },
+    "api_status": {
+      "type": "integer"
+    },
+    "api_duration_ms": {
+      "type": "number"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low", "unknown"]
+    }
+  }
+}
