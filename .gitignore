@@ -1,7 +1,10 @@
 .DS_Store
 .analytics-store/
+.first-party-analytics/
+.first-party-analytics-test/
 .playwright-mcp/
 .tools/
 /ruflo/
 node_modules/
+dist/
 *.log

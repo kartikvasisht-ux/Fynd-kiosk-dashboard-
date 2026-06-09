@@ -6,6 +6,7 @@
 */
 
 const assert = require("assert");
+const fsSync = require("fs");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
@@ -14,9 +15,18 @@ const { spawn } = require("child_process");
 const createDataLayerPlugin = require("./kiosk-data-layer-plugin.js");
 const serverModule = require("./realtime-event-server.js");
 const tagManager = require("./kiosk-tag-manager.js");
-const eventContract = require("./kiosk-event-contract.json");
+
+function requireBundledJson(fileName) {
+  const candidates = [path.join(__dirname, fileName), path.join(__dirname, "..", "contracts", fileName)];
+  const match = candidates.find(fsSync.existsSync);
+  if (!match) throw new Error(`Missing bundled test contract: ${fileName}`);
+  return require(match);
+}
+
+const eventContract = requireBundledJson("kiosk-event-contract.json");
 
 const TIMESTAMP = "2026-05-25T00:00:00.000Z";
+const SOURCE_URL = "https://fashionfactory.jiocommerce.io/ext/fynd-n-go/app/selfcheckout/?_ds=2790";
 
 function validPayload(overrides = {}) {
   return {
@@ -88,6 +98,36 @@ async function main() {
   });
   assert.strictEqual(missingOptional.screen_name, "unknown");
   assert.strictEqual(missingOptional.source_url, "unknown");
+  assert.strictEqual(serverModule.normalizeEvent(validPayload({
+    event_id: "evt-incremental-lift",
+    event_name: "api_request_success",
+    event_type: "api",
+    status: "success",
+    incremental_lift_pct: 12.4
+  })).incremental_lift_pct, 12.4);
+
+  const destinationEvent = serverModule.normalizeEvent(validPayload({
+    event_id: "evt-destination-map",
+    event_name: "payment_success",
+    event_type: "payment",
+    status: "success",
+    device_session_id: "device-001",
+    session_id: "session-001",
+    order_id_hash: "order-hash-001",
+    payment_session_id_hash: "payment-hash-001",
+    amount: 499,
+    currency: "INR"
+  }));
+  const ga4Payload = serverModule.mapEventForGa4(destinationEvent);
+  assert.strictEqual(ga4Payload.client_id, "device-001");
+  assert.strictEqual(ga4Payload.events[0].name, "payment_success");
+  assert.strictEqual(ga4Payload.events[0].params.session_id, "session-001");
+  assert.strictEqual(ga4Payload.events[0].params.value, 499);
+  const mixpanelPayload = serverModule.mapEventForMixpanel(destinationEvent, "mixpanel-token");
+  assert.strictEqual(mixpanelPayload.event, "payment_success");
+  assert.strictEqual(mixpanelPayload.properties.token, "mixpanel-token");
+  assert.strictEqual(mixpanelPayload.properties.distinct_id, "device-001");
+  assert.strictEqual(mixpanelPayload.properties.$insert_id, "evt-destination-map");
 
   const piiFields = serverModule.findBlockedFields({
     mobile: "9999999999",
@@ -99,6 +139,7 @@ async function main() {
   assert.deepStrictEqual(piiFields.sort(), ["mobile", "nested.authorization", "nested.otp"]);
 
   tagManager.configure({
+    sourceUrl: SOURCE_URL,
     context: {
       company_id: "59",
       application_id: "kiosk-app",
@@ -117,6 +158,11 @@ async function main() {
   assert.strictEqual(normalizedClientEvent.mobile, undefined);
   assert.strictEqual(normalizedClientEvent.otp, undefined);
   assert.strictEqual(normalizedClientEvent.company_id, "59");
+  assert.strictEqual(tagManager.normalizeMessage({
+    event: "welcome_screen_view",
+    session_id: "client-session",
+    screen_name: "welcome"
+  }).source_url, SOURCE_URL);
 
   const fakeRoot = {
     KIOSK_ANALYTICS_CONFIG: { autoInstall: false },
@@ -161,9 +207,17 @@ async function main() {
     }
   });
   assert.strictEqual(fakeRoot.installedOptions.collectorUrl, "http://collector.internal/analytics/kiosk-events");
+  assert.strictEqual(fakeRoot.installedOptions.sourceUrl, SOURCE_URL);
   assert.strictEqual(fakeRoot.installedOptions.context.company_id, "59");
+  assert.strictEqual(fakeRoot.installedOptions.context.data_source_id, "2790");
   assert.ok(fakeRoot.kioskDataLayer.some((entry) => entry.event === "kiosk_app_bootstrap_started"));
   assert.ok(fakeRoot.kioskDataLayer.some((entry) => entry.event === "welcome_screen_view"));
+  assert.ok(fakeRoot.kioskDataLayer.some((entry) => entry.event === "store_context_loaded"));
+  assert.ok(fakeRoot.kioskDataLayer.some((entry) => entry.event === "device_context_missing"));
+  assert.strictEqual(
+    fakeRoot.kioskDataLayer.find((entry) => entry.event === "kiosk_app_bootstrap_started").source_url,
+    SOURCE_URL
+  );
   dataLayerPlugin.push("scan_attempt", { session_id: "client-session", screen_name: "scan_home" });
   assert.ok(fakeRoot.kioskDataLayer.some((entry) => entry.event === "scan_attempt"));
 
@@ -174,7 +228,10 @@ async function main() {
     env: {
       ...process.env,
       PORT: String(port),
-      ANALYTICS_DATA_DIR: storeDir
+      ANALYTICS_DATA_DIR: storeDir,
+      GA4_MEASUREMENT_ID: "",
+      GA4_API_SECRET: "",
+      MIXPANEL_TOKEN: ""
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -206,9 +263,9 @@ async function main() {
       event_name: "api_request_failure",
       event_type: "api",
       status: "failure",
-      api_endpoint: "/payment/options",
+      api_endpoint_template: "/payment/options",
       api_status: 500,
-      api_duration_ms: 340,
+      api_latency_ms: 340,
       failure_reason: "test_failure"
     }));
     assert.strictEqual(apiFailure.status, 202);
@@ -259,6 +316,12 @@ async function main() {
     assert.strictEqual(exportPayload.tables.kiosk_events.length, 4);
     assert.strictEqual(exportPayload.tables.kiosk_api_events.length, 1);
     assert.strictEqual(exportPayload.tables.kiosk_sales_join_keys.length, 2);
+
+    const destinationResponse = await fetch(`http://127.0.0.1:${port}/analytics/destinations`);
+    assert.strictEqual(destinationResponse.ok, true);
+    const destinationPayload = await destinationResponse.json();
+    assert.strictEqual(destinationPayload.destinations.ga4.enabled, false);
+    assert.strictEqual(destinationPayload.destinations.mixpanel.enabled, false);
 
     const eventRows = await readJsonLines(path.join(storeDir, "kiosk_events.jsonl"));
     const sessionRows = await readJsonLines(path.join(storeDir, "kiosk_sessions.jsonl"));

@@ -1,8 +1,8 @@
 # Fynd Kiosk analytics dashboard
 
-Open `index.html` directly in a browser, or serve the folder locally for Playwright inspection.
+Open `index.html` directly in a browser, or serve the folder locally for Playwright inspection. A React Native / Expo implementation now also lives in `../fynd_kiosk_dashboard_react_native/`.
 
-This is a standalone live-only dashboard built from the exported Fynd Kiosk context. It includes:
+This is a standalone live-only dashboard built from the exported Fynd Kiosk context. The canonical real-time source is `https://fashionfactory.jiocommerce.io/ext/fynd-n-go/app/selfcheckout/?_ds=2790`. It includes:
 
 - Command, Strategy, and Operational dashboard tabs.
 - Global filters for date, city, brand, payment mode, device status, and store. Dimension filters unlock only after those dimensions arrive in live events.
@@ -12,6 +12,7 @@ This is a standalone live-only dashboard built from the exported Fynd Kiosk cont
 
 Additional implementation assets:
 
+- `../fynd_kiosk_dashboard_react_native/` — React Native / Expo dashboard and kiosk data-layer implementation using the same first-party collector.
 - `../plugins/kiosk-analytics/` — reusable Codex plugin bundle containing the analytics runtime, collector, schemas, docs, workflow, assets, and tests.
 - `docs/kiosk_journey_api_spec.md` — journey, API, break-point, SDK, and dashboard data mapping spec.
 - `docs/kiosk_touchpoint_map.md` — complete touchpoint map for session, screen, click, scan, cart, checkout, payment, order, and sales joins.
@@ -21,6 +22,7 @@ Additional implementation assets:
 - `docs/ruflo_integration.md` — Ruflo orchestration, workflow, browser QA, and observability bridge notes.
 - `boilerplate/kiosk-event-tracker.js` — GA4-style frontend event tracking helper.
 - `boilerplate/kiosk-data-layer-plugin.js` — kiosk-side one-script include that creates `window.kioskDataLayer`, installs tracking, wraps `fetch`, and emits bootstrap/screen events.
+- `boilerplate/fashionfactory-selfcheckout-adapter.js` — source adapter for the FashionFactory self-checkout entrypoint and runtime helpers.
 - `boilerplate/kiosk-tag-manager.js` — first-party GA4/GTM-like dataLayer runtime for kiosk touchpoints.
 - `boilerplate/kiosk-event-contract.json` — event payload JSON schema.
 - `boilerplate/kiosk-touchpoint-event-schema.json` — normalized touchpoint event schema.
@@ -31,11 +33,19 @@ Additional implementation assets:
 - `boilerplate/ruflo-observability-exporter.js` — exports the live collector summary as a Ruflo-style observability snapshot.
 - `ruflo/live-dashboard-ops.workflow.json` — Ruflo workflow template for live-only dashboard QA and operations checks.
 
+Tracking feed:
+
+```txt
+FashionFactory checkout -> kioskDataLayer -> KioskTagManager -> POST /analytics/kiosk-events -> dashboard/export APIs -> optional GA4/Mixpanel/AWS mirrors
+```
+
+MCP/browser tooling can inspect and verify the flow, but production analytics must be emitted by the checkout frontend, scanner bridge, backend API wrappers, payment/order callbacks, OMS, and device heartbeat sources. A localhost collector is local QA only; production kiosks need a public HTTPS collector URL.
+
 Notes:
 
 - This version does not render mock data.
 - The dashboard connects to `GET /analytics/stream`, `GET /analytics/summary`, and `GET /analytics/aggregates` from the collector at `http://127.0.0.1:8787` by default.
-- Start the collector with `node boilerplate/realtime-event-server.js`, then send real kiosk, payment, OMS, device, or backend events to `POST /analytics/kiosk-events`.
+- Start the collector with `node boilerplate/realtime-event-server.js`, then send real kiosk, payment, OMS, device, or backend events from the FashionFactory self-checkout source to `POST /analytics/kiosk-events`.
 - Accepted events are stored in `.analytics-store` as append-only JSONL tables unless `ANALYTICS_DATA_DIR` is set.
 - To point the page at another collector, open `index.html?collector=https://your-collector.example.com`.
 - Ruflo is integrated as an optional orchestration/observability layer only. It must not generate analytics values for the dashboard.

@@ -1,0 +1,12 @@
+{
+  "name": "fashion-factory-kiosk-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "build": "npm --prefix frontend run build",
+    "start": "SERVE_FRONTEND=true FRONTEND_DIST_DIR=../../frontend/dist npm --prefix backend start",
+    "check": "node --check backend/src/config.js && node --check backend/src/routes.js && node --check backend/src/firstPartyStore.js && node --check backend/src/server.js"
+  }
+}

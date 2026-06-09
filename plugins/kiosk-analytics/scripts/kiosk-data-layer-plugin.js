@@ -15,6 +15,11 @@
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function createKioskDataLayerPlugin(root = {}) {
   const DEFAULT_COLLECTOR_URL = "http://127.0.0.1:8787/analytics/kiosk-events";
+  const DEFAULT_SOURCE_URL = "https://fashionfactory.jiocommerce.io/ext/fynd-n-go/app/selfcheckout/?_ds=2790";
+  const DEFAULT_COMPANY_ID = "59";
+  const DEFAULT_APPLICATION_ID = "688a0fc42f61c5197c8bbfc5";
+  const DEFAULT_STORE_ID = "2790";
+  const DEFAULT_DATA_SOURCE_ID = "2790";
   const DEFAULT_SCREEN_NAME = "welcome";
   const DEFAULT_SCREEN_EVENT = "welcome_screen_view";
   const DATASET_CONTEXT_MAP = {
@@ -24,6 +29,7 @@
     storeName: "store_name",
     kioskId: "kiosk_id",
     deviceSessionId: "device_session_id",
+    dataSourceId: "data_source_id",
     appVersion: "app_version"
   };
 
@@ -44,6 +50,23 @@
     return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null && entry !== ""));
   }
 
+  function firstPresent(...values) {
+    return values.find((value) => value !== undefined && value !== null && value !== "");
+  }
+
+  function extractDataSourceId(url) {
+    try {
+      return new URL(url, root.location && root.location.href ? root.location.href : DEFAULT_SOURCE_URL).searchParams.get("_ds");
+    } catch {
+      return null;
+    }
+  }
+
+  function currentLocationSourceUrl() {
+    if (!root.location) return DEFAULT_SOURCE_URL;
+    return root.location.href || `${root.location.pathname || ""}${root.location.search || ""}` || DEFAULT_SOURCE_URL;
+  }
+
   function currentScript() {
     return root.document && root.document.currentScript;
   }
@@ -58,6 +81,7 @@
 
     return cleanObject({
       collectorUrl: dataset.collectorUrl,
+      sourceUrl: dataset.sourceUrl,
       screenName: dataset.screenName,
       screenEvent: dataset.screenEvent,
       autoInstall: parseBoolean(dataset.autoInstall, undefined),
@@ -78,8 +102,18 @@
   function mergedOptions(options = {}) {
     const fromDataset = datasetOptions();
     const fromGlobal = globalOptions();
+    const sourceUrl = firstPresent(options.sourceUrl, fromGlobal.sourceUrl, fromDataset.sourceUrl, DEFAULT_SOURCE_URL);
+    const dataSourceId = firstPresent(
+      options.context && options.context.data_source_id,
+      fromGlobal.context && fromGlobal.context.data_source_id,
+      fromDataset.context && fromDataset.context.data_source_id,
+      extractDataSourceId(currentLocationSourceUrl()),
+      extractDataSourceId(sourceUrl),
+      DEFAULT_DATA_SOURCE_ID
+    );
     return {
       collectorUrl: DEFAULT_COLLECTOR_URL,
+      sourceUrl,
       screenName: DEFAULT_SCREEN_NAME,
       screenEvent: DEFAULT_SCREEN_EVENT,
       autoInstall: true,
@@ -91,6 +125,11 @@
       ...fromGlobal,
       ...options,
       context: cleanObject({
+        company_id: DEFAULT_COMPANY_ID,
+        application_id: DEFAULT_APPLICATION_ID,
+        store_id: dataSourceId || DEFAULT_STORE_ID,
+        data_source_id: dataSourceId || DEFAULT_DATA_SOURCE_ID,
+        source_url: sourceUrl,
         ...(fromDataset.context || {}),
         ...(fromGlobal.context || {}),
         ...(options.context || {})
@@ -162,13 +201,14 @@
       screen_name: config.screenName,
       journey_stage: "bootstrap",
       status: "started",
-      source_url: root.location ? `${root.location.pathname || ""}${root.location.search || ""}` : "unknown"
+      source_url: config.sourceUrl
     });
 
     installPromise = loadTagManager().then((manager) => {
       if (!manager) return api;
       manager.install({
         collectorUrl: config.collectorUrl,
+        sourceUrl: config.sourceUrl,
         context: config.context,
         autoSession: config.autoSession,
         autoClickTracking: config.autoClickTracking,
@@ -184,7 +224,31 @@
       if (config.screenEvent && typeof manager.trackScreenView === "function") {
         manager.trackScreenView(config.screenName, {
           event_name: config.screenEvent,
-          journey_stage: config.screenName === "welcome" ? "welcome" : undefined
+          journey_stage: config.screenName === "welcome" ? "welcome" : undefined,
+          source_url: config.sourceUrl
+        });
+      }
+
+      if (config.context.store_id) {
+        root.kioskDataLayer.push({
+          event: "store_context_loaded",
+          event_type: "api",
+          screen_name: config.screenName,
+          journey_stage: "bootstrap",
+          status: "success",
+          source_url: config.sourceUrl
+        });
+      }
+
+      if (!config.context.kiosk_id && !config.context.device_session_id) {
+        root.kioskDataLayer.push({
+          event: "device_context_missing",
+          event_type: "system",
+          screen_name: config.screenName,
+          journey_stage: "bootstrap",
+          status: "failure",
+          context_missing: "kiosk_id,device_session_id",
+          source_url: config.sourceUrl
         });
       }
 

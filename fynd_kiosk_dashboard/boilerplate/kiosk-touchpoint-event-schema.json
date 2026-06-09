@@ -136,6 +136,9 @@
     "store_id": {
       "type": "string"
     },
+    "data_source_id": {
+      "type": "string"
+    },
     "store_name": {
       "type": "string"
     },
@@ -167,10 +170,25 @@
     "api_endpoint": {
       "type": "string"
     },
+    "api_endpoint_template": {
+      "type": "string"
+    },
     "api_status": {
       "type": "integer"
     },
     "api_duration_ms": {
+      "type": "number"
+    },
+    "api_latency_ms": {
+      "type": "number"
+    },
+    "incremental_lift_pct": {
+      "type": "number"
+    },
+    "incremental_lift_percent": {
+      "type": "number"
+    },
+    "incremental_lift_rate": {
       "type": "number"
     },
     "failure_reason": {

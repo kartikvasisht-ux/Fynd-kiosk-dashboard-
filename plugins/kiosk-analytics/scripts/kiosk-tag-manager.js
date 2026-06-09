@@ -103,6 +103,7 @@
 
   const state = {
     collectorUrl: DEFAULT_COLLECTOR_URL,
+    sourceUrl: "",
     context: {},
     installed: false,
     autoClickTracking: true,
@@ -140,8 +141,9 @@
   }
 
   function currentSourceUrl() {
+    if (state.sourceUrl) return state.sourceUrl;
     if (!root.location) return "unknown";
-    return `${root.location.pathname || ""}${root.location.search || ""}` || "unknown";
+    return root.location.href || `${root.location.pathname || ""}${root.location.search || ""}` || "unknown";
   }
 
   function inferRule(eventName) {
@@ -247,6 +249,7 @@
 
   function configure(options = {}) {
     if (options.collectorUrl) state.collectorUrl = options.collectorUrl;
+    if (options.sourceUrl) state.sourceUrl = options.sourceUrl;
     if (options.context) state.context = { ...state.context, ...stripBlockedFields(options.context) };
     if (typeof options.autoClickTracking === "boolean") state.autoClickTracking = options.autoClickTracking;
     if (typeof options.autoSession === "boolean") state.autoSession = options.autoSession;
@@ -278,7 +281,10 @@
       event_type: "api",
       status: success ? "success" : "failure",
       api_endpoint: endpoint,
+      api_endpoint_template: endpoint,
       api_status: Number.isFinite(status) ? status : undefined,
+      api_duration_ms: params.api_duration_ms || params.api_latency_ms,
+      api_latency_ms: params.api_latency_ms || params.api_duration_ms,
       source_url: endpoint,
       ...params
     });
@@ -303,6 +309,7 @@
         const duration = Date.now() - started;
         trackApi(maskEndpoint(endpoint || "unknown"), response, {
           api_duration_ms: duration,
+          api_latency_ms: duration,
           event_name: response.status >= 400 ? "api_request_failure" : "api_request_success"
         });
         return response;
@@ -313,7 +320,9 @@
           event_type: "api",
           status: "failure",
           api_endpoint: maskEndpoint(endpoint || "unknown"),
+          api_endpoint_template: maskEndpoint(endpoint || "unknown"),
           api_duration_ms: duration,
+          api_latency_ms: duration,
           failure_reason: error.message,
           source_url: maskEndpoint(endpoint || "unknown")
         });
@@ -326,6 +335,8 @@
     return String(endpoint)
       .replace(/([?&](?:mobileNo|userId|user_id|cart_id|order_id|token|authorization)=)[^&]+/gi, "$1{masked}")
       .replace(/\/orders\/[^/?]+/gi, "/orders/{order_id}")
+      .replace(/\/payment-orders\/[^/?]+/gi, "/payment-orders/{payment_order_id}")
+      .replace(/\/cart\/[^/?]+/gi, "/cart/{cart_id}")
       .replace(/id=[^&]+/gi, "id={masked}");
   }
 

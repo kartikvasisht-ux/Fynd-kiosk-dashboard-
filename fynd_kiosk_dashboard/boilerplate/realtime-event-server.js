@@ -22,9 +22,19 @@ const path = require("path");
 const crypto = require("crypto");
 
 const PORT = Number(process.env.PORT || 8787);
+const HOST = process.env.HOST || "127.0.0.1";
 const STORAGE_ROOT = process.env.ANALYTICS_DATA_DIR || path.join(__dirname, "..", ".analytics-store");
-const EVENT_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, "kiosk-touchpoint-event-schema.json"), "utf8"));
-const EVENT_CONTRACT = JSON.parse(fs.readFileSync(path.join(__dirname, "kiosk-event-contract.json"), "utf8"));
+const GA4_ENDPOINT = process.env.GA4_ENDPOINT || "https://www.google-analytics.com/mp/collect";
+const MIXPANEL_ENDPOINT = process.env.MIXPANEL_ENDPOINT || "https://api.mixpanel.com/track";
+
+function readBundledJson(...relativePaths) {
+  const match = relativePaths.map((relativePath) => path.join(__dirname, relativePath)).find(fs.existsSync);
+  if (!match) throw new Error(`Missing bundled analytics contract: ${relativePaths.join(" or ")}`);
+  return JSON.parse(fs.readFileSync(match, "utf8"));
+}
+
+const EVENT_SCHEMA = readBundledJson("kiosk-touchpoint-event-schema.json", "../contracts/kiosk-touchpoint-event-schema.json");
+const EVENT_CONTRACT = readBundledJson("kiosk-event-contract.json", "../contracts/kiosk-event-contract.json");
 
 const EVENT_TYPES = new Set(EVENT_SCHEMA.properties.event_type.enum);
 const STATUSES = new Set(EVENT_SCHEMA.properties.status.enum);
@@ -38,7 +48,26 @@ const TABLES = {
   sessions: "kiosk_sessions.jsonl",
   api: "kiosk_api_events.jsonl",
   sales: "kiosk_sales_join_keys.jsonl",
+  destinations: "kiosk_destination_events.jsonl",
   quarantine: "kiosk_quarantine.jsonl"
+};
+
+const DESTINATION_CONFIG = {
+  ga4: {
+    enabled: Boolean(process.env.GA4_MEASUREMENT_ID && process.env.GA4_API_SECRET),
+    measurementId: process.env.GA4_MEASUREMENT_ID,
+    apiSecret: process.env.GA4_API_SECRET,
+    endpoint: GA4_ENDPOINT
+  },
+  mixpanel: {
+    enabled: Boolean(process.env.MIXPANEL_TOKEN),
+    token: process.env.MIXPANEL_TOKEN,
+    endpoint: MIXPANEL_ENDPOINT
+  },
+  amplify: {
+    enabled: false,
+    mode: "client_or_aws_pipeline_required"
+  }
 };
 
 const BLOCKED_FIELD_NAMES = new Set([
@@ -171,8 +200,152 @@ function hashReference(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
+function stableClientId(event) {
+  return firstPresent(
+    event.client_id,
+    event.device_session_id,
+    event.kiosk_id,
+    event.user_id_hash,
+    event.session_id && hashReference(event.session_id).slice(0, 16),
+    "unknown_client"
+  );
+}
+
 function firstPresent(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
+}
+
+function compactObject(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null && entry !== ""));
+}
+
+function numericTimestampMicros(event) {
+  const time = new Date(firstPresent(event.occurred_at, event.timestamp, event.received_at)).getTime();
+  return Number.isFinite(time) ? time * 1000 : undefined;
+}
+
+function eventCommonParams(event) {
+  return compactObject({
+    event_id: event.event_id,
+    session_id: event.session_id,
+    event_type: event.event_type,
+    screen_name: event.screen_name,
+    action_name: event.action_name,
+    journey_stage: event.journey_stage,
+    status: event.status,
+    source: event.source,
+    source_url: event.source_url,
+    company_id: event.company_id,
+    application_id: event.application_id,
+    store_id: event.store_id,
+    data_source_id: event.data_source_id,
+    store_name: event.store_name,
+    kiosk_id: event.kiosk_id,
+    device_session_id: event.device_session_id,
+    app_version: event.app_version,
+    cart_id_hash: event.cart_id_hash,
+    order_id_hash: event.order_id_hash,
+    payment_session_id_hash: event.payment_session_id_hash,
+    payment_order_id_hash: event.payment_order_id_hash,
+    transaction_id_hash: event.transaction_id_hash,
+    article: event.article,
+    barcode_hash: event.barcode_hash,
+    product_id: event.product_id,
+    brand_id: event.brand_id,
+    line_item_id: event.line_item_id,
+    quantity: event.quantity,
+    value: event.amount,
+    currency: event.currency,
+    payment_mode: event.payment_mode,
+    aggregator_name: event.aggregator_name,
+    failure_reason: event.failure_reason,
+    api_endpoint: event.api_endpoint_template || event.api_endpoint,
+    api_status: event.api_status,
+    api_latency_ms: event.api_latency_ms || event.api_duration_ms,
+    incremental_lift_pct: event.incremental_lift_pct
+  });
+}
+
+function mapEventForGa4(event) {
+  const params = eventCommonParams(event);
+  return compactObject({
+    client_id: stableClientId(event),
+    user_id: event.user_id_hash,
+    timestamp_micros: numericTimestampMicros(event),
+    events: [{
+      name: event.event_name,
+      params
+    }]
+  });
+}
+
+function mapEventForMixpanel(event, token = DESTINATION_CONFIG.mixpanel.token) {
+  const occurredAt = new Date(firstPresent(event.occurred_at, event.timestamp, event.received_at)).getTime();
+  return {
+    event: event.event_name,
+    properties: compactObject({
+      token,
+      distinct_id: stableClientId(event),
+      time: Number.isFinite(occurredAt) ? Math.floor(occurredAt / 1000) : undefined,
+      $insert_id: event.event_id,
+      ...eventCommonParams(event)
+    })
+  };
+}
+
+async function appendDestinationAttempt(destination, event, status, details = {}) {
+  await appendJsonLine("destinations", compactObject({
+    attempted_at: new Date().toISOString(),
+    destination,
+    event_id: event.event_id,
+    event_name: event.event_name,
+    status,
+    http_status: details.http_status,
+    error: details.error
+  }));
+}
+
+async function forwardToGa4(event) {
+  const config = DESTINATION_CONFIG.ga4;
+  if (!config.enabled) return null;
+  const url = new URL(config.endpoint);
+  url.searchParams.set("measurement_id", config.measurementId);
+  url.searchParams.set("api_secret", config.apiSecret);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mapEventForGa4(event))
+  });
+  await appendDestinationAttempt("ga4", event, response.ok ? "sent" : "failed", { http_status: response.status });
+  return response;
+}
+
+async function forwardToMixpanel(event) {
+  const config = DESTINATION_CONFIG.mixpanel;
+  if (!config.enabled) return null;
+  const url = new URL(config.endpoint);
+  url.searchParams.set("verbose", "1");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mapEventForMixpanel(event, config.token))
+  });
+  await appendDestinationAttempt("mixpanel", event, response.ok ? "sent" : "failed", { http_status: response.status });
+  return response;
+}
+
+async function forwardToDestinations(event) {
+  const jobs = [];
+  if (DESTINATION_CONFIG.ga4.enabled) jobs.push(forwardToGa4(event));
+  if (DESTINATION_CONFIG.mixpanel.enabled) jobs.push(forwardToMixpanel(event));
+  if (!jobs.length) return [];
+  const results = await Promise.allSettled(jobs);
+  await Promise.all(results.map((result, index) => {
+    if (result.status === "fulfilled") return null;
+    const destination = [DESTINATION_CONFIG.ga4.enabled && "ga4", DESTINATION_CONFIG.mixpanel.enabled && "mixpanel"].filter(Boolean)[index];
+    return appendDestinationAttempt(destination || "unknown", event, "failed", { error: result.reason && result.reason.message });
+  }).filter(Boolean));
+  return results;
 }
 
 function normalizeEvent(raw) {
@@ -196,10 +369,11 @@ function normalizeEvent(raw) {
     action_name: raw.action_name,
     journey_stage: firstPresent(raw.journey_stage, inferredStage),
     status: firstPresent(raw.status, inferredStatus),
-    source_url: firstPresent(raw.source_url, raw.api_endpoint, "unknown"),
+    source_url: firstPresent(raw.source_url, raw.api_endpoint_template, raw.api_endpoint, "unknown"),
     company_id: raw.company_id,
     application_id: raw.application_id,
     store_id: raw.store_id,
+    data_source_id: raw.data_source_id,
     store_name: raw.store_name,
     city: raw.city,
     city_name: raw.city_name,
@@ -227,13 +401,18 @@ function normalizeEvent(raw) {
     payment_mode: firstPresent(raw.payment_mode, paymentRef.payment_mode),
     aggregator_name: firstPresent(raw.aggregator_name, paymentRef.aggregator_name),
     failure_reason: raw.failure_reason,
-    api_endpoint: raw.api_endpoint,
+    api_endpoint: firstPresent(raw.api_endpoint, raw.api_endpoint_template),
+    api_endpoint_template: firstPresent(raw.api_endpoint_template, raw.api_endpoint),
     api_status: raw.api_status,
-    api_duration_ms: raw.api_duration_ms,
+    api_duration_ms: firstPresent(raw.api_duration_ms, raw.api_latency_ms),
+    api_latency_ms: firstPresent(raw.api_latency_ms, raw.api_duration_ms),
     queue_depth: raw.queue_depth,
     oms_elapsed_ms: raw.oms_elapsed_ms,
     order_placed_at: raw.order_placed_at,
     order_confirmed_at: raw.order_confirmed_at,
+    incremental_lift_pct: raw.incremental_lift_pct,
+    incremental_lift_percent: raw.incremental_lift_percent,
+    incremental_lift_rate: raw.incremental_lift_rate,
     context_missing: raw.context_missing
   };
 
@@ -309,9 +488,11 @@ function toApiRow(event) {
     session_id: event.session_id,
     event_name: event.event_name,
     timestamp: event.timestamp,
-    api_endpoint: event.api_endpoint || event.source_url,
+    api_endpoint: event.api_endpoint || event.api_endpoint_template || event.source_url,
+    api_endpoint_template: event.api_endpoint_template || event.api_endpoint || event.source_url,
     api_status: event.api_status,
     api_duration_ms: event.api_duration_ms,
+    api_latency_ms: event.api_latency_ms,
     status: event.status,
     failure_reason: event.failure_reason,
     store_id: event.store_id,
@@ -330,6 +511,7 @@ function toSalesJoinRow(event) {
     company_id: event.company_id,
     application_id: event.application_id,
     store_id: event.store_id,
+    data_source_id: event.data_source_id,
     cart_id_hash: event.cart_id_hash,
     order_id_hash: event.order_id_hash,
     payment_session_id_hash: event.payment_session_id_hash,
@@ -427,14 +609,16 @@ function groupCounts(rows, labeler) {
 
 function currentSummary() {
   const recent = events.filter((event) => Date.now() - new Date(event.received_at || event.timestamp).getTime() <= 60_000);
-  const latencyValues = events.map((event) => Number(event.api_duration_ms)).filter((value) => Number.isFinite(value));
+  const latencyValues = events
+    .map((event) => Number(firstPresent(event.api_duration_ms, event.api_latency_ms)))
+    .filter((value) => Number.isFinite(value));
   return {
     events_processed: events.length,
     events_per_minute: recent.length,
     api_latency_ms: latencyValues.length ? Math.round(latencyValues.reduce((sum, value) => sum + value, 0) / latencyValues.length) : null,
     queue_depth: 0,
     failures: events.filter(isFailure).length,
-    last_event_at: events[0] ? events[0].timestamp : null,
+    last_event_at: events[0] ? firstPresent(events[0].received_at, events[0].timestamp) : null,
     aggregates: aggregateEvents()
   };
 }
@@ -501,6 +685,9 @@ async function handleEventPost(req, res) {
   insertInMemory(event);
   await persistAcceptedEvent(event);
   broadcast(event);
+  forwardToDestinations(event).catch((error) => {
+    appendDestinationAttempt("unknown", event, "failed", { error: error.message }).catch(() => null);
+  });
   sendJson(res, 202, { accepted: true, event_id: event.event_id });
 }
 
@@ -558,6 +745,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/analytics/destinations") {
+      sendJson(res, 200, {
+        destinations: {
+          ga4: {
+            enabled: DESTINATION_CONFIG.ga4.enabled,
+            endpoint: DESTINATION_CONFIG.ga4.endpoint,
+            measurement_id_configured: Boolean(DESTINATION_CONFIG.ga4.measurementId),
+            api_secret_configured: Boolean(DESTINATION_CONFIG.ga4.apiSecret)
+          },
+          mixpanel: {
+            enabled: DESTINATION_CONFIG.mixpanel.enabled,
+            endpoint: DESTINATION_CONFIG.mixpanel.endpoint,
+            token_configured: Boolean(DESTINATION_CONFIG.mixpanel.token)
+          },
+          amplify: {
+            enabled: DESTINATION_CONFIG.amplify.enabled,
+            mode: DESTINATION_CONFIG.amplify.mode
+          }
+        }
+      });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/analytics/stream") {
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
@@ -584,8 +794,8 @@ const server = http.createServer(async (req, res) => {
 
 if (require.main === module) {
   loadPersistedEvents().then(() => {
-    server.listen(PORT, "127.0.0.1", () => {
-      console.log(`Kiosk realtime event server listening on http://127.0.0.1:${PORT}`);
+    server.listen(PORT, HOST, () => {
+      console.log(`Kiosk realtime event server listening on http://${HOST}:${PORT}`);
       console.log(`Analytics data directory: ${STORAGE_ROOT}`);
     });
   }).catch((error) => {
@@ -598,6 +808,8 @@ module.exports = {
   aggregateEvents,
   findBlockedFields,
   loadPersistedEvents,
+  mapEventForGa4,
+  mapEventForMixpanel,
   normalizeEvent,
   redactBlockedFields,
   server,
